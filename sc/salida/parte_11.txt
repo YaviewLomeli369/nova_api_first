@@ -1,0 +1,485 @@
+super().prepare_value(value)
+
+    def to_python(self, value):
+        if value in self.empty_values:
+            return None
+        try:
+            key = self.to_field_name or "pk"
+            if isinstance(value, self.queryset.model):
+                value = getattr(value, key)
+            value = self.queryset.get(**{key: value})
+        except (ValueError, TypeError, self.queryset.model.DoesNotExist):
+            raise ValidationError(
+                self.error_messages["invalid_choice"],
+                code="invalid_choice",
+                params={"value": value},
+            )
+        return value
+
+    def validate(self, value):
+        return Field.validate(self, value)
+
+    def has_changed(self, initial, data):
+        if self.disabled:
+            return False
+        initial_value = initial if initial is not None else ""
+        data_value = data if data is not None else ""
+        return str(self.prepare_value(initial_value)) != str(data_value)
+
+
+class ModelMultipleChoiceField(ModelChoiceField):
+    """A MultipleChoiceField whose choices are a model QuerySet."""
+
+    widget = SelectMultiple
+    hidden_widget = MultipleHiddenInput
+    default_error_messages = {
+        "invalid_list": _("Enter a list of values."),
+        "invalid_choice": _(
+            "Select a valid choice. %(value)s is not one of the available choices."
+        ),
+        "invalid_pk_value": _("“%(pk)s” is not a valid value."),
+    }
+
+    def __init__(self, queryset, **kwargs):
+        super().__init__(queryset, empty_label=None, **kwargs)
+
+    def to_python(self, value):
+        if not value:
+            return []
+        return list(self._check_values(value))
+
+    def clean(self, value):
+        value = self.prepare_value(value)
+        if self.required and not value:
+            raise ValidationError(self.error_messages["required"], code="required")
+        elif not self.required and not value:
+            return self.queryset.none()
+        if not isinstance(value, (list, tuple)):
+            raise ValidationError(
+                self.error_messages["invalid_list"],
+                code="invalid_list",
+            )
+        qs = self._check_values(value)
+        # Since this overrides the inherited ModelChoiceField.clean
+        # we run custom validators here
+        self.run_validators(value)
+        return qs
+
+    def _check_values(self, value):
+        """
+        Given a list of possible PK values, return a QuerySet of the
+        corresponding objects. Raise a ValidationError if a given value is
+        invalid (not a valid PK, not in the queryset, etc.)
+        """
+        key = self.to_field_name or "pk"
+        # deduplicate given values to avoid creating many querysets or
+        # requiring the database backend deduplicate efficiently.
+        try:
+            value = frozenset(value)
+        except TypeError:
+            # list of lists isn't hashable, for example
+            raise ValidationError(
+                self.error_messages["invalid_list"],
+                code="invalid_list",
+            )
+        for pk in value:
+            try:
+                self.queryset.filter(**{key: pk})
+            except (ValueError, TypeError):
+                raise ValidationError(
+                    self.error_messages["invalid_pk_value"],
+                    code="invalid_pk_value",
+                    params={"pk": pk},
+                )
+        qs = self.queryset.filter(**{"%s__in" % key: value})
+        pks = {str(getattr(o, key)) for o in qs}
+        for val in value:
+            if str(val) not in pks:
+                raise ValidationError(
+                    self.error_messages["invalid_choice"],
+                    code="invalid_choice",
+                    params={"value": val},
+                )
+        return qs
+
+    def prepare_value(self, value):
+        if (
+            hasattr(value, "__iter__")
+            and not isinstance(value, str)
+            and not hasattr(value, "_meta")
+        ):
+            prepare_value = super().prepare_value
+            return [prepare_value(v) for v in value]
+        return super().prepare_value(value)
+
+    def has_changed(self, initial, data):
+        if self.disabled:
+            return False
+        if initial is None:
+            initial = []
+        if data is None:
+            data = []
+        if len(initial) != len(data):
+            return True
+        initial_set = {str(value) for value in self.prepare_value(initial)}
+        data_set = {str(value) for value in data}
+        return data_set != initial_set
+
+
+def modelform_defines_fields(form_class):
+    return hasattr(form_class, "_meta") and (
+        form_class._meta.fields is not None or form_class._meta.exclude is not None
+    )
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./.pythonlibs/lib/python3.10/site-packages/rest_framework/authtoken/models.py ===
+
+import binascii
+import os
+
+from django.conf import settings
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+
+class Token(models.Model):
+    """
+    The default authorization token model.
+    """
+    key = models.CharField(_("Key"), max_length=40, primary_key=True)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, related_name='auth_token',
+        on_delete=models.CASCADE, verbose_name=_("User")
+    )
+    created = models.DateTimeField(_("Created"), auto_now_add=True)
+
+    class Meta:
+        # Work around for a bug in Django:
+        # https://code.djangoproject.com/ticket/19422
+        #
+        # Also see corresponding ticket:
+        # https://github.com/encode/django-rest-framework/issues/705
+        abstract = 'rest_framework.authtoken' not in settings.INSTALLED_APPS
+        verbose_name = _("Token")
+        verbose_name_plural = _("Tokens")
+
+    def save(self, *args, **kwargs):
+        if not self.key:
+            self.key = self.generate_key()
+        return super().save(*args, **kwargs)
+
+    @classmethod
+    def generate_key(cls):
+        return binascii.hexlify(os.urandom(20)).decode()
+
+    def __str__(self):
+        return self.key
+
+
+class TokenProxy(Token):
+    """
+    Proxy mapping pk to user pk for use in admin.
+    """
+    @property
+    def pk(self):
+        return self.user_id
+
+    class Meta:
+        proxy = 'rest_framework.authtoken' in settings.INSTALLED_APPS
+        abstract = 'rest_framework.authtoken' not in settings.INSTALLED_APPS
+        verbose_name = _("Token")
+        verbose_name_plural = _("Tokens")
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./.pythonlibs/lib/python3.10/site-packages/rest_framework_simplejwt/models.py ===
+
+from typing import TYPE_CHECKING, Any, Optional, Union
+
+from django.contrib.auth import models as auth_models
+from django.db.models.manager import EmptyManager
+from django.utils.functional import cached_property
+
+from .settings import api_settings
+
+if TYPE_CHECKING:
+    from .tokens import Token
+
+
+class TokenUser:
+    """
+    A dummy user class modeled after django.contrib.auth.models.AnonymousUser.
+    Used in conjunction with the `JWTStatelessUserAuthentication` backend to
+    implement single sign-on functionality across services which share the same
+    secret key.  `JWTStatelessUserAuthentication` will return an instance of this
+    class instead of a `User` model instance.  Instances of this class act as
+    stateless user objects which are backed by validated tokens.
+    """
+
+    # User is always active since Simple JWT will never issue a token for an
+    # inactive user
+    is_active = True
+
+    _groups = EmptyManager(auth_models.Group)
+    _user_permissions = EmptyManager(auth_models.Permission)
+
+    def __init__(self, token: "Token") -> None:
+        self.token = token
+
+    def __str__(self) -> str:
+        return f"TokenUser {self.id}"
+
+    @cached_property
+    def id(self) -> Union[int, str]:
+        return self.token[api_settings.USER_ID_CLAIM]
+
+    @cached_property
+    def pk(self) -> Union[int, str]:
+        return self.id
+
+    @cached_property
+    def username(self) -> str:
+        return self.token.get("username", "")
+
+    @cached_property
+    def is_staff(self) -> bool:
+        return self.token.get("is_staff", False)
+
+    @cached_property
+    def is_superuser(self) -> bool:
+        return self.token.get("is_superuser", False)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, TokenUser):
+            return NotImplemented
+        return self.id == other.id
+
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
+
+    def __hash__(self) -> int:
+        return hash(self.id)
+
+    def save(self) -> None:
+        raise NotImplementedError("Token users have no DB representation")
+
+    def delete(self) -> None:
+        raise NotImplementedError("Token users have no DB representation")
+
+    def set_password(self, raw_password: str) -> None:
+        raise NotImplementedError("Token users have no DB representation")
+
+    def check_password(self, raw_password: str) -> None:
+        raise NotImplementedError("Token users have no DB representation")
+
+    @property
+    def groups(self) -> auth_models.Group:
+        return self._groups
+
+    @property
+    def user_permissions(self) -> auth_models.Permission:
+        return self._user_permissions
+
+    def get_group_permissions(self, obj: Optional[object] = None) -> set:
+        return set()
+
+    def get_all_permissions(self, obj: Optional[object] = None) -> set:
+        return set()
+
+    def has_perm(self, perm: str, obj: Optional[object] = None) -> bool:
+        return False
+
+    def has_perms(self, perm_list: list[str], obj: Optional[object] = None) -> bool:
+        return False
+
+    def has_module_perms(self, module: str) -> bool:
+        return False
+
+    @property
+    def is_anonymous(self) -> bool:
+        return False
+
+    @property
+    def is_authenticated(self) -> bool:
+        return True
+
+    def get_username(self) -> str:
+        return self.username
+
+    def __getattr__(self, attr: str) -> Optional[Any]:
+        """This acts as a backup attribute getter for custom claims defined in Token serializers."""
+        return self.token.get(attr, None)
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./.pythonlibs/lib/python3.10/site-packages/rest_framework_simplejwt/token_blacklist/models.py ===
+
+from django.conf import settings
+from django.db import models
+
+
+class OutstandingToken(models.Model):
+    id = models.BigAutoField(primary_key=True, serialize=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    jti = models.CharField(unique=True, max_length=255)
+    token = models.TextField()
+
+    created_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        # Work around for a bug in Django:
+        # https://code.djangoproject.com/ticket/19422
+        #
+        # Also see corresponding ticket:
+        # https://github.com/encode/django-rest-framework/issues/705
+        abstract = (
+            "rest_framework_simplejwt.token_blacklist" not in settings.INSTALLED_APPS
+        )
+        ordering = ("user",)
+
+    def __str__(self) -> str:
+        return "Token for {} ({})".format(
+            self.user,
+            self.jti,
+        )
+
+
+class BlacklistedToken(models.Model):
+    id = models.BigAutoField(primary_key=True, serialize=False)
+    token = models.OneToOneField(OutstandingToken, on_delete=models.CASCADE)
+
+    blacklisted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Work around for a bug in Django:
+        # https://code.djangoproject.com/ticket/19422
+        #
+        # Also see corresponding ticket:
+        # https://github.com/encode/django-rest-framework/issues/705
+        abstract = (
+            "rest_framework_simplejwt.token_blacklist" not in settings.INSTALLED_APPS
+        )
+
+    def __str__(self) -> str:
+        return f"Blacklisted token for {self.token.user}"
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./venv/lib/python3.10/site-packages/pip/_internal/utils/models.py ===
+
+"""Utilities for defining models
+"""
+
+import operator
+from typing import Any, Callable, Type
+
+
+class KeyBasedCompareMixin:
+    """Provides comparison capabilities that is based on a key"""
+
+    __slots__ = ["_compare_key", "_defining_class"]
+
+    def __init__(self, key: Any, defining_class: Type["KeyBasedCompareMixin"]) -> None:
+        self._compare_key = key
+        self._defining_class = defining_class
+
+    def __hash__(self) -> int:
+        return hash(self._compare_key)
+
+    def __lt__(self, other: Any) -> bool:
+        return self._compare(other, operator.__lt__)
+
+    def __le__(self, other: Any) -> bool:
+        return self._compare(other, operator.__le__)
+
+    def __gt__(self, other: Any) -> bool:
+        return self._compare(other, operator.__gt__)
+
+    def __ge__(self, other: Any) -> bool:
+        return self._compare(other, operator.__ge__)
+
+    def __eq__(self, other: Any) -> bool:
+        return self._compare(other, operator.__eq__)
+
+    def _compare(self, other: Any, method: Callable[[Any, Any], bool]) -> bool:
+        if not isinstance(other, self._defining_class):
+            return NotImplemented
+
+        return method(self._compare_key, other._compare_key)
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./venv/lib/python3.10/site-packages/pip/_vendor/requests/models.py ===
+
+"""
+requests.models
+~~~~~~~~~~~~~~~
+
+This module contains the primary objects that power Requests.
+"""
+
+import datetime
+
+# Import encoding now, to avoid implicit import later.
+# Implicit import within threads may cause LookupError when standard library is in a ZIP,
+# such as in Embedded Python. See https://github.com/psf/requests/issues/3578.
+import encodings.idna  # noqa: F401
+from io import UnsupportedOperation
+
+from pip._vendor.urllib3.exceptions import (
+    DecodeError,
+    LocationParseError,
+    ProtocolError,
+    ReadTimeoutError,
+    SSLError,
+)
+from pip._vendor.urllib3.fields import RequestField
+from pip._vendor.urllib3.filepost import encode_multipart_formdata
+from pip._vendor.urllib3.util import parse_url
+
+from ._internal_utils import to_native_string, unicode_is_ascii
+from .auth import HTTPBasicAuth
+from .compat import (
+    Callable,
+    JSONDecodeError,
+    Mapping,
+    basestring,
+    builtin_str,
+    chardet,
+    cookielib,
+)
+from .compat import json as complexjson
+from .compat import urlencode, urlsplit, urlunparse
+from .cookies import _copy_cookie_jar, cookiejar_from_dict, get_cookie_header
+from .exceptions import (
+    ChunkedEncodingError,
+    ConnectionError,
+    ContentDecodingError,
+    HTTPError,
+    InvalidJSONError,
+    InvalidURL,
+)
+from .exceptions import JSONDecodeError as RequestsJSONDecodeError
+from .exceptions import MissingSchema
+from .exceptions import SSLError as RequestsSSLError
+from .exceptions import StreamConsumedError
+from .hooks import default_hooks
+from .status_codes import codes
+from .structures import CaseInsensitiveDict
+from .utils import (
+   

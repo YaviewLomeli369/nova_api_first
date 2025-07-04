@@ -1,0 +1,423 @@
+  mutable = getattr(form.data, "_mutable", None)
+            # Allow modifying an immutable QueryDict.
+            if mutable is not None:
+                form.data._mutable = True
+            # Remove the primary key from the form's data, we are only
+            # creating new instances
+            form.data[form.add_prefix(self._pk_field.name)] = None
+            # Remove the foreign key from the form's data
+            form.data[form.add_prefix(self.fk.name)] = None
+            if mutable is not None:
+                form.data._mutable = mutable
+
+        # Set the fk value here so that the form can do its validation.
+        fk_value = self.instance.pk
+        if self.fk.remote_field.field_name != self.fk.remote_field.model._meta.pk.name:
+            fk_value = getattr(self.instance, self.fk.remote_field.field_name)
+            fk_value = getattr(fk_value, "pk", fk_value)
+        setattr(form.instance, self.fk.get_attname(), fk_value)
+        return form
+
+    @classmethod
+    def get_default_prefix(cls):
+        return cls.fk.remote_field.get_accessor_name(model=cls.model).replace("+", "")
+
+    def save_new(self, form, commit=True):
+        # Ensure the latest copy of the related instance is present on each
+        # form (it may have been saved after the formset was originally
+        # instantiated).
+        setattr(form.instance, self.fk.name, self.instance)
+        return super().save_new(form, commit=commit)
+
+    def add_fields(self, form, index):
+        super().add_fields(form, index)
+        if self._pk_field == self.fk:
+            name = self._pk_field.name
+            kwargs = {"pk_field": True}
+        else:
+            # The foreign key field might not be on the form, so we poke at the
+            # Model field to get the label, since we need that for error messages.
+            name = self.fk.name
+            kwargs = {
+                "label": getattr(
+                    form.fields.get(name), "label", capfirst(self.fk.verbose_name)
+                )
+            }
+
+        # The InlineForeignKeyField assumes that the foreign key relation is
+        # based on the parent model's pk. If this isn't the case, set to_field
+        # to correctly resolve the initial form value.
+        if self.fk.remote_field.field_name != self.fk.remote_field.model._meta.pk.name:
+            kwargs["to_field"] = self.fk.remote_field.field_name
+
+        # If we're adding a new object, ignore a parent's auto-generated key
+        # as it will be regenerated on the save request.
+        if self.instance._state.adding:
+            if kwargs.get("to_field") is not None:
+                to_field = self.instance._meta.get_field(kwargs["to_field"])
+            else:
+                to_field = self.instance._meta.pk
+
+            if to_field.has_default() and (
+                # Don't ignore a parent's auto-generated key if it's not the
+                # parent model's pk and form data is provided.
+                to_field.attname == self.fk.remote_field.model._meta.pk.name
+                or not form.data
+            ):
+                setattr(self.instance, to_field.attname, None)
+
+        form.fields[name] = InlineForeignKeyField(self.instance, **kwargs)
+
+    def get_unique_error_message(self, unique_check):
+        unique_check = [field for field in unique_check if field != self.fk.name]
+        return super().get_unique_error_message(unique_check)
+
+
+def _get_foreign_key(parent_model, model, fk_name=None, can_fail=False):
+    """
+    Find and return the ForeignKey from model to parent if there is one
+    (return None if can_fail is True and no such field exists). If fk_name is
+    provided, assume it is the name of the ForeignKey field. Unless can_fail is
+    True, raise an exception if there isn't a ForeignKey from model to
+    parent_model.
+    """
+    # avoid circular import
+    from django.db.models import ForeignKey
+
+    opts = model._meta
+    if fk_name:
+        fks_to_parent = [f for f in opts.fields if f.name == fk_name]
+        if len(fks_to_parent) == 1:
+            fk = fks_to_parent[0]
+            parent_list = parent_model._meta.get_parent_list()
+            if (
+                not isinstance(fk, ForeignKey)
+                or (
+                    # ForeignKey to proxy models.
+                    fk.remote_field.model._meta.proxy
+                    and fk.remote_field.model._meta.proxy_for_model not in parent_list
+                )
+                or (
+                    # ForeignKey to concrete models.
+                    not fk.remote_field.model._meta.proxy
+                    and fk.remote_field.model != parent_model
+                    and fk.remote_field.model not in parent_list
+                )
+            ):
+                raise ValueError(
+                    "fk_name '%s' is not a ForeignKey to '%s'."
+                    % (fk_name, parent_model._meta.label)
+                )
+        elif not fks_to_parent:
+            raise ValueError(
+                "'%s' has no field named '%s'." % (model._meta.label, fk_name)
+            )
+    else:
+        # Try to discover what the ForeignKey from model to parent_model is
+        parent_list = parent_model._meta.get_parent_list()
+        fks_to_parent = [
+            f
+            for f in opts.fields
+            if isinstance(f, ForeignKey)
+            and (
+                f.remote_field.model == parent_model
+                or f.remote_field.model in parent_list
+                or (
+                    f.remote_field.model._meta.proxy
+                    and f.remote_field.model._meta.proxy_for_model in parent_list
+                )
+            )
+        ]
+        if len(fks_to_parent) == 1:
+            fk = fks_to_parent[0]
+        elif not fks_to_parent:
+            if can_fail:
+                return
+            raise ValueError(
+                "'%s' has no ForeignKey to '%s'."
+                % (
+                    model._meta.label,
+                    parent_model._meta.label,
+                )
+            )
+        else:
+            raise ValueError(
+                "'%s' has more than one ForeignKey to '%s'. You must specify "
+                "a 'fk_name' attribute."
+                % (
+                    model._meta.label,
+                    parent_model._meta.label,
+                )
+            )
+    return fk
+
+
+def inlineformset_factory(
+    parent_model,
+    model,
+    form=ModelForm,
+    formset=BaseInlineFormSet,
+    fk_name=None,
+    fields=None,
+    exclude=None,
+    extra=3,
+    can_order=False,
+    can_delete=True,
+    max_num=None,
+    formfield_callback=None,
+    widgets=None,
+    validate_max=False,
+    localized_fields=None,
+    labels=None,
+    help_texts=None,
+    error_messages=None,
+    min_num=None,
+    validate_min=False,
+    field_classes=None,
+    absolute_max=None,
+    can_delete_extra=True,
+    renderer=None,
+    edit_only=False,
+):
+    """
+    Return an ``InlineFormSet`` for the given kwargs.
+
+    ``fk_name`` must be provided if ``model`` has more than one ``ForeignKey``
+    to ``parent_model``.
+    """
+    fk = _get_foreign_key(parent_model, model, fk_name=fk_name)
+    # enforce a max_num=1 when the foreign key to the parent model is unique.
+    if fk.unique:
+        max_num = 1
+    kwargs = {
+        "form": form,
+        "formfield_callback": formfield_callback,
+        "formset": formset,
+        "extra": extra,
+        "can_delete": can_delete,
+        "can_order": can_order,
+        "fields": fields,
+        "exclude": exclude,
+        "min_num": min_num,
+        "max_num": max_num,
+        "widgets": widgets,
+        "validate_min": validate_min,
+        "validate_max": validate_max,
+        "localized_fields": localized_fields,
+        "labels": labels,
+        "help_texts": help_texts,
+        "error_messages": error_messages,
+        "field_classes": field_classes,
+        "absolute_max": absolute_max,
+        "can_delete_extra": can_delete_extra,
+        "renderer": renderer,
+        "edit_only": edit_only,
+    }
+    FormSet = modelformset_factory(model, **kwargs)
+    FormSet.fk = fk
+    return FormSet
+
+
+# Fields #####################################################################
+
+
+class InlineForeignKeyField(Field):
+    """
+    A basic integer field that deals with validating the given value to a
+    given parent instance in an inline.
+    """
+
+    widget = HiddenInput
+    default_error_messages = {
+        "invalid_choice": _("The inline value did not match the parent instance."),
+    }
+
+    def __init__(self, parent_instance, *args, pk_field=False, to_field=None, **kwargs):
+        self.parent_instance = parent_instance
+        self.pk_field = pk_field
+        self.to_field = to_field
+        if self.parent_instance is not None:
+            if self.to_field:
+                kwargs["initial"] = getattr(self.parent_instance, self.to_field)
+            else:
+                kwargs["initial"] = self.parent_instance.pk
+        kwargs["required"] = False
+        super().__init__(*args, **kwargs)
+
+    def clean(self, value):
+        if value in self.empty_values:
+            if self.pk_field:
+                return None
+            # if there is no value act as we did before.
+            return self.parent_instance
+        # ensure the we compare the values as equal types.
+        if self.to_field:
+            orig = getattr(self.parent_instance, self.to_field)
+        else:
+            orig = self.parent_instance.pk
+        if str(value) != str(orig):
+            raise ValidationError(
+                self.error_messages["invalid_choice"], code="invalid_choice"
+            )
+        return self.parent_instance
+
+    def has_changed(self, initial, data):
+        return False
+
+
+class ModelChoiceIteratorValue:
+    def __init__(self, value, instance):
+        self.value = value
+        self.instance = instance
+
+    def __str__(self):
+        return str(self.value)
+
+    def __hash__(self):
+        return hash(self.value)
+
+    def __eq__(self, other):
+        if isinstance(other, ModelChoiceIteratorValue):
+            other = other.value
+        return self.value == other
+
+
+class ModelChoiceIterator(BaseChoiceIterator):
+    def __init__(self, field):
+        self.field = field
+        self.queryset = field.queryset
+
+    def __iter__(self):
+        if self.field.empty_label is not None:
+            yield ("", self.field.empty_label)
+        queryset = self.queryset
+        # Can't use iterator() when queryset uses prefetch_related()
+        if not queryset._prefetch_related_lookups:
+            queryset = queryset.iterator()
+        for obj in queryset:
+            yield self.choice(obj)
+
+    def __len__(self):
+        # count() adds a query but uses less memory since the QuerySet results
+        # won't be cached. In most cases, the choices will only be iterated on,
+        # and __len__() won't be called.
+        return self.queryset.count() + (1 if self.field.empty_label is not None else 0)
+
+    def __bool__(self):
+        return self.field.empty_label is not None or self.queryset.exists()
+
+    def choice(self, obj):
+        return (
+            ModelChoiceIteratorValue(self.field.prepare_value(obj), obj),
+            self.field.label_from_instance(obj),
+        )
+
+
+class ModelChoiceField(ChoiceField):
+    """A ChoiceField whose choices are a model QuerySet."""
+
+    # This class is a subclass of ChoiceField for purity, but it doesn't
+    # actually use any of ChoiceField's implementation.
+    default_error_messages = {
+        "invalid_choice": _(
+            "Select a valid choice. That choice is not one of the available choices."
+        ),
+    }
+    iterator = ModelChoiceIterator
+
+    def __init__(
+        self,
+        queryset,
+        *,
+        empty_label="---------",
+        required=True,
+        widget=None,
+        label=None,
+        initial=None,
+        help_text="",
+        to_field_name=None,
+        limit_choices_to=None,
+        blank=False,
+        **kwargs,
+    ):
+        # Call Field instead of ChoiceField __init__() because we don't need
+        # ChoiceField.__init__().
+        Field.__init__(
+            self,
+            required=required,
+            widget=widget,
+            label=label,
+            initial=initial,
+            help_text=help_text,
+            **kwargs,
+        )
+        if (required and initial is not None) or (
+            isinstance(self.widget, RadioSelect) and not blank
+        ):
+            self.empty_label = None
+        else:
+            self.empty_label = empty_label
+        self.queryset = queryset
+        self.limit_choices_to = limit_choices_to  # limit the queryset later.
+        self.to_field_name = to_field_name
+
+    def get_limit_choices_to(self):
+        """
+        Return ``limit_choices_to`` for this form field.
+
+        If it is a callable, invoke it and return the result.
+        """
+        if callable(self.limit_choices_to):
+            return self.limit_choices_to()
+        return self.limit_choices_to
+
+    def __deepcopy__(self, memo):
+        result = super(ChoiceField, self).__deepcopy__(memo)
+        # Need to force a new ModelChoiceIterator to be created, bug #11183
+        if self.queryset is not None:
+            result.queryset = self.queryset.all()
+        return result
+
+    def _get_queryset(self):
+        return self._queryset
+
+    def _set_queryset(self, queryset):
+        self._queryset = None if queryset is None else queryset.all()
+        self.widget.choices = self.choices
+
+    queryset = property(_get_queryset, _set_queryset)
+
+    # this method will be used to create object labels by the QuerySetIterator.
+    # Override it to customize the label.
+    def label_from_instance(self, obj):
+        """
+        Convert objects into strings and generate the labels for the choices
+        presented by this object. Subclasses can override this method to
+        customize the display of the choices.
+        """
+        return str(obj)
+
+    def _get_choices(self):
+        # If self._choices is set, then somebody must have manually set
+        # the property self.choices. In this case, just return self._choices.
+        if hasattr(self, "_choices"):
+            return self._choices
+
+        # Otherwise, execute the QuerySet in self.queryset to determine the
+        # choices dynamically. Return a fresh ModelChoiceIterator that has not been
+        # consumed. Note that we're instantiating a new ModelChoiceIterator *each*
+        # time _get_choices() is called (and, thus, each time self.choices is
+        # accessed) so that we can ensure the QuerySet has not been consumed. This
+        # construct might look complicated but it allows for lazy evaluation of
+        # the queryset.
+        return self.iterator(self)
+
+    choices = property(_get_choices, ChoiceField.choices.fset)
+
+    def prepare_value(self, value):
+        if hasattr(value, "_meta"):
+            if self.to_field_name:
+                return value.serializable_value(self.to_field_name)
+            else:
+                return value.pk
+        return

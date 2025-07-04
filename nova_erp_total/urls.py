@@ -1,5 +1,5 @@
 """
-URL configuration for django_project project.
+URL configuration for nova_erp_total project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/5.0/topics/http/urls/
@@ -17,6 +17,17 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
+#JSON RESPONSE
+from django.http import JsonResponse
+
+
+#PRUEBA JSON RESOPNSE
+def ping(request):
+    return JsonResponse({"status": "ok", "message": "Nova ERP API is running"})
+
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/ping/', ping),
 ]

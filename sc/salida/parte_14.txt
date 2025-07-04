@@ -1,0 +1,423 @@
+is None
+            #
+            # So we try blindly encoding.
+            content = str(self.content, errors="replace")
+
+        return content
+
+    def json(self, **kwargs):
+        r"""Returns the json-encoded content of a response, if any.
+
+        :param \*\*kwargs: Optional arguments that ``json.loads`` takes.
+        :raises requests.exceptions.JSONDecodeError: If the response body does not
+            contain valid json.
+        """
+
+        if not self.encoding and self.content and len(self.content) > 3:
+            # No encoding set. JSON RFC 4627 section 3 states we should expect
+            # UTF-8, -16 or -32. Detect which one to use; If the detection or
+            # decoding fails, fall back to `self.text` (using charset_normalizer to make
+            # a best guess).
+            encoding = guess_json_utf(self.content)
+            if encoding is not None:
+                try:
+                    return complexjson.loads(self.content.decode(encoding), **kwargs)
+                except UnicodeDecodeError:
+                    # Wrong UTF codec detected; usually because it's not UTF-8
+                    # but some other 8-bit codec.  This is an RFC violation,
+                    # and the server didn't bother to tell us what codec *was*
+                    # used.
+                    pass
+                except JSONDecodeError as e:
+                    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+
+        try:
+            return complexjson.loads(self.text, **kwargs)
+        except JSONDecodeError as e:
+            # Catch JSON-related errors and raise as requests.JSONDecodeError
+            # This aliases json.JSONDecodeError and simplejson.JSONDecodeError
+            raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+
+    @property
+    def links(self):
+        """Returns the parsed header links of the response, if any."""
+
+        header = self.headers.get("link")
+
+        resolved_links = {}
+
+        if header:
+            links = parse_header_links(header)
+
+            for link in links:
+                key = link.get("rel") or link.get("url")
+                resolved_links[key] = link
+
+        return resolved_links
+
+    def raise_for_status(self):
+        """Raises :class:`HTTPError`, if one occurred."""
+
+        http_error_msg = ""
+        if isinstance(self.reason, bytes):
+            # We attempt to decode utf-8 first because some servers
+            # choose to localize their reason strings. If the string
+            # isn't utf-8, we fall back to iso-8859-1 for all other
+            # encodings. (See PR #3538)
+            try:
+                reason = self.reason.decode("utf-8")
+            except UnicodeDecodeError:
+                reason = self.reason.decode("iso-8859-1")
+        else:
+            reason = self.reason
+
+        if 400 <= self.status_code < 500:
+            http_error_msg = (
+                f"{self.status_code} Client Error: {reason} for url: {self.url}"
+            )
+
+        elif 500 <= self.status_code < 600:
+            http_error_msg = (
+                f"{self.status_code} Server Error: {reason} for url: {self.url}"
+            )
+
+        if http_error_msg:
+            raise HTTPError(http_error_msg, response=self)
+
+    def close(self):
+        """Releases the connection back to the pool. Once this method has been
+        called the underlying ``raw`` object must not be accessed again.
+
+        *Note: Should not normally need to be called explicitly.*
+        """
+        if not self._content_consumed:
+            self.raw.close()
+
+        release_conn = getattr(self.raw, "release_conn", None)
+        if release_conn is not None:
+            release_conn()
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./accounts/models.py ===
+
+# accounts/models.py
+
+from django.db import models
+from django.utils import timezone
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+from core.models import Empresa
+
+
+class Rol(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+    descripcion = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Rol"
+        verbose_name_plural = "Roles"
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
+class UsuarioManager(BaseUserManager):
+    def create_user(self, username, email, password=None, **extra_fields):
+        if not username:
+            raise ValueError('El usuario debe tener un username')
+        if not email:
+            raise ValueError('El usuario debe tener un email válido')
+        email = self.normalize_email(email)
+        user = self.model(username=username, email=email, **extra_fields)
+        user.set_password(password)a
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, username, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('activo', True)
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('El superusuario debe tener is_superuser=True.')
+        return self.create_user(username, email, password, **extra_fields)
+
+
+class Usuario(AbstractBaseUser, PermissionsMixin):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='usuarios')
+    rol = models.ForeignKey(Rol, on_delete=models.SET_NULL, null=True, blank=True, related_name='usuarios')
+    username = models.CharField(max_length=150, unique=True)
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=128)
+    activo = models.BooleanField(default=True)
+    fecha_creacion = models.DateTimeField(default=timezone.now)
+    foto = models.URLField(blank=True, null=True)
+    telefono = models.CharField(max_length=30, blank=True, null=True)
+    direccion = models.TextField(blank=True, null=True)
+    idioma = models.CharField(max_length=10, default='es')
+    tema = models.CharField(max_length=50, default='claro')
+
+    USERNAME_FIELD = 'username'
+    REQUIRED_FIELDS = ['email']
+
+    objects = UsuarioManager()
+
+    class Meta:
+        verbose_name = 'Usuario'
+        verbose_name_plural = 'Usuarios'
+        ordering = ['username']
+        indexes = [
+            models.Index(fields=['empresa', 'username']),
+            models.Index(fields=['rol', 'activo']),
+        ]
+
+    def __str__(self):
+        return self.username
+
+    def get_full_name(self):
+        return self.username
+
+    def get_short_name(self):
+        return self.username
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./inventario/models.py ===
+
+# inventario/models.py
+
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
+class Categoria(models.Model):
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='categorias')
+    nombre = models.CharField(max_length=100)
+    descripcion = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Categoría"
+        verbose_name_plural = "Categorías"
+        ordering = ['nombre']
+        indexes = [
+            models.Index(fields=['empresa', 'nombre']),
+        ]
+
+    def __str__(self):
+        return self.nombre
+
+
+class Producto(models.Model):
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='productos')
+    codigo = models.CharField(max_length=50, unique=True)
+    nombre = models.CharField(max_length=100)
+    descripcion = models.TextField(blank=True, null=True)
+    unidad_medida = models.CharField(max_length=50)
+    categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_name='productos')
+    precio_compra = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_venta = models.DecimalField(max_digits=10, decimal_places=2)
+    stock_minimo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    activo = models.BooleanField(default=True)
+
+    def clean(self):
+        if self.precio_venta < self.precio_compra:
+            raise ValidationError("El precio de venta no puede ser menor que el precio de compra.")
+        if self.precio_compra < 0 or self.precio_venta < 0:
+            raise ValidationError("Los precios no pueden ser negativos.")
+        if self.stock_minimo < 0:
+            raise ValidationError("El stock mínimo no puede ser negativo.")
+
+    class Meta:
+        verbose_name = "Producto"
+        verbose_name_plural = "Productos"
+        ordering = ['nombre']
+        indexes = [
+            models.Index(fields=['empresa', 'codigo']),
+            models.Index(fields=['categoria']),
+        ]
+
+    def __str__(self):
+        return self.nombre
+
+
+class Inventario(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='inventarios')
+    sucursal = models.ForeignKey('core.Sucursal', on_delete=models.CASCADE, related_name='inventarios')
+    lote = models.CharField(max_length=100, blank=True, null=True)
+    fecha_vencimiento = models.DateField(blank=True, null=True)
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def clean(self):
+        if self.cantidad < 0:
+            raise ValidationError("La cantidad en inventario no puede ser negativa.")
+        if self.fecha_vencimiento and self.fecha_vencimiento < timezone.now().date():
+            raise ValidationError("La fecha de vencimiento no puede estar en el pasado.")
+
+
+    class Meta:
+        verbose_name = "Inventario"
+        verbose_name_plural = "Inventarios"
+        indexes = [
+            models.Index(fields=['producto', 'sucursal']),
+            models.Index(fields=['fecha_vencimiento']),
+        ]
+        ordering = ['producto']
+
+    def __str__(self):
+        return f"{self.producto.nombre} - {self.sucursal.nombre}"
+
+
+class MovimientoInventario(models.Model):
+    TIPO_CHOICES = [
+        ('entrada', 'Entrada'),
+        ('salida', 'Salida'),
+        ('ajuste', 'Ajuste'),
+    ]
+
+    inventario = models.ForeignKey(Inventario, on_delete=models.CASCADE, related_name='movimientos')
+    tipo_movimiento = models.CharField(max_length=10, choices=TIPO_CHOICES)
+    cantidad = models.DecimalField(max_digits=14, decimal_places=2)
+    fecha = models.DateTimeField(auto_now_add=True)
+    usuario = models.ForeignKey('accounts.Usuario', on_delete=models.PROTECT, related_name='movimientos_inventario')
+
+    class Meta:
+        verbose_name = "Movimiento de Inventario"
+        verbose_name_plural = "Movimientos de Inventario"
+        ordering = ['-fecha']
+        indexes = [
+            models.Index(fields=['inventario', 'fecha']),
+            models.Index(fields=['tipo_movimiento']),
+        ]
+
+    def __str__(self):
+        return f"{self.get_tipo_movimiento_display()} - {self.cantidad} unidades - {self.fecha}"
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./ventas/models.py ===
+
+# ventas/models.py (completado)
+
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
+class Cliente(models.Model):
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='clientes')
+    nombre = models.CharField(max_length=200)
+    rfc = models.CharField(max_length=13, blank=True, null=True)
+    correo = models.EmailField(blank=True, null=True)
+    telefono = models.CharField(max_length=20, blank=True, null=True)
+    direccion = models.TextField(blank=True, null=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Cliente"
+        verbose_name_plural = "Clientes"
+        ordering = ['nombre']
+        indexes = [
+            models.Index(fields=['empresa', 'nombre']),
+        ]
+
+    def __str__(self):
+        return self.nombre
+
+
+class Venta(models.Model):
+    ESTADO_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('COMPLETADA', 'Completada'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='ventas')
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='ventas')
+    fecha = models.DateTimeField(auto_now_add=True)
+    total = models.DecimalField(max_digits=14, decimal_places=2)
+    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='PENDIENTE')
+    usuario = models.ForeignKey('accounts.Usuario', on_delete=models.PROTECT, related_name='ventas')
+
+    class Meta:
+        verbose_name = "Venta"
+        verbose_name_plural = "Ventas"
+        ordering = ['-fecha']
+        indexes = [
+            models.Index(fields=['empresa', 'fecha']),
+            models.Index(fields=['estado']),
+        ]
+
+    def __str__(self):
+        return f"Venta {self.id} - {self.cliente.nombre} - {self.estado}"
+
+
+class DetalleVenta(models.Model):
+    venta = models.ForeignKey(Venta, on_delete=models.CASCADE, related_name='detalles')
+    producto = models.ForeignKey('inventario.Producto', on_delete=models.PROTECT, related_name='ventas_detalle')
+    cantidad = models.DecimalField(max_digits=14, decimal_places=2)
+    precio_unitario = models.DecimalField(max_digits=14, decimal_places=2)
+
+    def clean(self):
+        if self.cantidad <= 0:
+            raise ValidationError("La cantidad debe ser mayor a cero.")
+        if self.precio_unitario <= 0:
+            raise ValidationError("El precio unitario debe ser mayor a cero.")
+
+    class Meta:
+        verbose_name = "Detalle de Venta"
+        verbose_name_plural = "Detalles de Venta"
+        indexes = [
+            models.Index(fields=['producto']),
+        ]
+
+    def __str__(self):
+        return f"{self.cantidad} x {self.producto.nombre} @ {self.precio_unitario}"
+
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./compras/models.py ===
+
+# compras/models.py
+from django.db import models
+from django.utils import timezone
+from accounts.models import Usuario, Empresa
+from inventario.models import Producto
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
+class Proveedor(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='proveedores')
+    nombre = models.CharField(max_length=255)
+    rfc = models.CharField(max_length=13)
+    correo = models.EmailField(blank=True, null=True)
+    telefono = models.CharField(max_length=30, blank=True, null=True)
+    direccion = models.TextField(blank=True, null=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Proveedor"
+        verbose_name_plural = "Proveedores"
+        unique_together = ('empresa', 'rfc')
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
+class Compra(models.Model):
+    ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('completada', 'Completada'),
+        ('cancelada', 'Cancelada'),
+    ]
+
+    empresa = models.ForeignKey(Empresa,

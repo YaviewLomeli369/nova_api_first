@@ -1,0 +1,440 @@
+support for anonymous sessions. The session
+    framework lets you store and retrieve arbitrary data on a
+    per-site-visitor basis. It stores data on the server side and
+    abstracts the sending and receiving of cookies. Cookies contain a
+    session ID -- not the data itself.
+
+    The Django sessions framework is entirely cookie-based. It does
+    not fall back to putting session IDs in URLs. This is an intentional
+    design decision. Not only does that behavior make URLs ugly, it makes
+    your site vulnerable to session-ID theft via the "Referer" header.
+
+    For complete documentation on using Sessions in your code, consult
+    the sessions documentation that is shipped with Django (also available
+    on the Django web site).
+    """
+
+    objects = SessionManager()
+
+    @classmethod
+    def get_session_store_class(cls):
+        from django.contrib.sessions.backends.db import SessionStore
+
+        return SessionStore
+
+    class Meta(AbstractBaseSession.Meta):
+        db_table = "django_session"
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./.pythonlibs/lib/python3.10/site-packages/django/contrib/sites/models.py ===
+
+import string
+
+from django.core.exceptions import ImproperlyConfigured, ValidationError
+from django.db import models
+from django.db.models.signals import pre_delete, pre_save
+from django.http.request import split_domain_port
+from django.utils.translation import gettext_lazy as _
+
+SITE_CACHE = {}
+
+
+def _simple_domain_name_validator(value):
+    """
+    Validate that the given value contains no whitespaces to prevent common
+    typos.
+    """
+    checks = ((s in value) for s in string.whitespace)
+    if any(checks):
+        raise ValidationError(
+            _("The domain name cannot contain any spaces or tabs."),
+            code="invalid",
+        )
+
+
+class SiteManager(models.Manager):
+    use_in_migrations = True
+
+    def _get_site_by_id(self, site_id):
+        if site_id not in SITE_CACHE:
+            site = self.get(pk=site_id)
+            SITE_CACHE[site_id] = site
+        return SITE_CACHE[site_id]
+
+    def _get_site_by_request(self, request):
+        host = request.get_host()
+        try:
+            # First attempt to look up the site by host with or without port.
+            if host not in SITE_CACHE:
+                SITE_CACHE[host] = self.get(domain__iexact=host)
+            return SITE_CACHE[host]
+        except Site.DoesNotExist:
+            # Fallback to looking up site after stripping port from the host.
+            domain, port = split_domain_port(host)
+            if domain not in SITE_CACHE:
+                SITE_CACHE[domain] = self.get(domain__iexact=domain)
+            return SITE_CACHE[domain]
+
+    def get_current(self, request=None):
+        """
+        Return the current Site based on the SITE_ID in the project's settings.
+        If SITE_ID isn't defined, return the site with domain matching
+        request.get_host(). The ``Site`` object is cached the first time it's
+        retrieved from the database.
+        """
+        from django.conf import settings
+
+        if getattr(settings, "SITE_ID", ""):
+            site_id = settings.SITE_ID
+            return self._get_site_by_id(site_id)
+        elif request:
+            return self._get_site_by_request(request)
+
+        raise ImproperlyConfigured(
+            'You\'re using the Django "sites framework" without having '
+            "set the SITE_ID setting. Create a site in your database and "
+            "set the SITE_ID setting or pass a request to "
+            "Site.objects.get_current() to fix this error."
+        )
+
+    def clear_cache(self):
+        """Clear the ``Site`` object cache."""
+        global SITE_CACHE
+        SITE_CACHE = {}
+
+    def get_by_natural_key(self, domain):
+        return self.get(domain=domain)
+
+
+class Site(models.Model):
+    domain = models.CharField(
+        _("domain name"),
+        max_length=100,
+        validators=[_simple_domain_name_validator],
+        unique=True,
+    )
+    name = models.CharField(_("display name"), max_length=50)
+
+    objects = SiteManager()
+
+    class Meta:
+        db_table = "django_site"
+        verbose_name = _("site")
+        verbose_name_plural = _("sites")
+        ordering = ["domain"]
+
+    def __str__(self):
+        return self.domain
+
+    def natural_key(self):
+        return (self.domain,)
+
+
+def clear_site_cache(sender, **kwargs):
+    """
+    Clear the cache (if primed) each time a site is saved or deleted.
+    """
+    instance = kwargs["instance"]
+    using = kwargs["using"]
+    try:
+        del SITE_CACHE[instance.pk]
+    except KeyError:
+        pass
+    try:
+        del SITE_CACHE[Site.objects.using(using).get(pk=instance.pk).domain]
+    except (KeyError, Site.DoesNotExist):
+        pass
+
+
+pre_save.connect(clear_site_cache, sender=Site)
+pre_delete.connect(clear_site_cache, sender=Site)
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./.pythonlibs/lib/python3.10/site-packages/django/db/migrations/operations/models.py ===
+
+from django.db import models
+from django.db.migrations.operations.base import Operation
+from django.db.migrations.state import ModelState
+from django.db.migrations.utils import field_references, resolve_relation
+from django.db.models.options import normalize_together
+from django.utils.functional import cached_property
+
+from .fields import AddField, AlterField, FieldOperation, RemoveField, RenameField
+
+
+def _check_for_duplicates(arg_name, objs):
+    used_vals = set()
+    for val in objs:
+        if val in used_vals:
+            raise ValueError(
+                "Found duplicate value %s in CreateModel %s argument." % (val, arg_name)
+            )
+        used_vals.add(val)
+
+
+class ModelOperation(Operation):
+    def __init__(self, name):
+        self.name = name
+
+    @cached_property
+    def name_lower(self):
+        return self.name.lower()
+
+    def references_model(self, name, app_label):
+        return name.lower() == self.name_lower
+
+    def reduce(self, operation, app_label):
+        return super().reduce(operation, app_label) or self.can_reduce_through(
+            operation, app_label
+        )
+
+    def can_reduce_through(self, operation, app_label):
+        return not operation.references_model(self.name, app_label)
+
+
+class CreateModel(ModelOperation):
+    """Create a model's table."""
+
+    serialization_expand_args = ["fields", "options", "managers"]
+
+    def __init__(self, name, fields, options=None, bases=None, managers=None):
+        self.fields = fields
+        self.options = options or {}
+        self.bases = bases or (models.Model,)
+        self.managers = managers or []
+        super().__init__(name)
+        # Sanity-check that there are no duplicated field names, bases, or
+        # manager names
+        _check_for_duplicates("fields", (name for name, _ in self.fields))
+        _check_for_duplicates(
+            "bases",
+            (
+                (
+                    base._meta.label_lower
+                    if hasattr(base, "_meta")
+                    else base.lower() if isinstance(base, str) else base
+                )
+                for base in self.bases
+            ),
+        )
+        _check_for_duplicates("managers", (name for name, _ in self.managers))
+
+    def deconstruct(self):
+        kwargs = {
+            "name": self.name,
+            "fields": self.fields,
+        }
+        if self.options:
+            kwargs["options"] = self.options
+        if self.bases and self.bases != (models.Model,):
+            kwargs["bases"] = self.bases
+        if self.managers and self.managers != [("objects", models.Manager())]:
+            kwargs["managers"] = self.managers
+        return (self.__class__.__qualname__, [], kwargs)
+
+    def state_forwards(self, app_label, state):
+        state.add_model(
+            ModelState(
+                app_label,
+                self.name,
+                list(self.fields),
+                dict(self.options),
+                tuple(self.bases),
+                list(self.managers),
+            )
+        )
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.name)
+        if self.allow_migrate_model(schema_editor.connection.alias, model):
+            schema_editor.create_model(model)
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        model = from_state.apps.get_model(app_label, self.name)
+        if self.allow_migrate_model(schema_editor.connection.alias, model):
+            schema_editor.delete_model(model)
+
+    def describe(self):
+        return "Create %smodel %s" % (
+            "proxy " if self.options.get("proxy", False) else "",
+            self.name,
+        )
+
+    @property
+    def migration_name_fragment(self):
+        return self.name_lower
+
+    def references_model(self, name, app_label):
+        name_lower = name.lower()
+        if name_lower == self.name_lower:
+            return True
+
+        # Check we didn't inherit from the model
+        reference_model_tuple = (app_label, name_lower)
+        for base in self.bases:
+            if (
+                base is not models.Model
+                and isinstance(base, (models.base.ModelBase, str))
+                and resolve_relation(base, app_label) == reference_model_tuple
+            ):
+                return True
+
+        # Check we have no FKs/M2Ms with it
+        for _name, field in self.fields:
+            if field_references(
+                (app_label, self.name_lower), field, reference_model_tuple
+            ):
+                return True
+        return False
+
+    def reduce(self, operation, app_label):
+        if (
+            isinstance(operation, DeleteModel)
+            and self.name_lower == operation.name_lower
+            and not self.options.get("proxy", False)
+        ):
+            return []
+        elif (
+            isinstance(operation, RenameModel)
+            and self.name_lower == operation.old_name_lower
+        ):
+            return [
+                CreateModel(
+                    operation.new_name,
+                    fields=self.fields,
+                    options=self.options,
+                    bases=self.bases,
+                    managers=self.managers,
+                ),
+            ]
+        elif (
+            isinstance(operation, AlterModelOptions)
+            and self.name_lower == operation.name_lower
+        ):
+            options = {**self.options, **operation.options}
+            for key in operation.ALTER_OPTION_KEYS:
+                if key not in operation.options:
+                    options.pop(key, None)
+            return [
+                CreateModel(
+                    self.name,
+                    fields=self.fields,
+                    options=options,
+                    bases=self.bases,
+                    managers=self.managers,
+                ),
+            ]
+        elif (
+            isinstance(operation, AlterModelManagers)
+            and self.name_lower == operation.name_lower
+        ):
+            return [
+                CreateModel(
+                    self.name,
+                    fields=self.fields,
+                    options=self.options,
+                    bases=self.bases,
+                    managers=operation.managers,
+                ),
+            ]
+        elif (
+            isinstance(operation, AlterTogetherOptionOperation)
+            and self.name_lower == operation.name_lower
+        ):
+            return [
+                CreateModel(
+                    self.name,
+                    fields=self.fields,
+                    options={
+                        **self.options,
+                        **{operation.option_name: operation.option_value},
+                    },
+                    bases=self.bases,
+                    managers=self.managers,
+                ),
+            ]
+        elif (
+            isinstance(operation, AlterOrderWithRespectTo)
+            and self.name_lower == operation.name_lower
+        ):
+            return [
+                CreateModel(
+                    self.name,
+                    fields=self.fields,
+                    options={
+                        **self.options,
+                        "order_with_respect_to": operation.order_with_respect_to,
+                    },
+                    bases=self.bases,
+                    managers=self.managers,
+                ),
+            ]
+        elif (
+            isinstance(operation, FieldOperation)
+            and self.name_lower == operation.model_name_lower
+        ):
+            if isinstance(operation, AddField):
+                return [
+                    CreateModel(
+                        self.name,
+                        fields=self.fields + [(operation.name, operation.field)],
+                        options=self.options,
+                        bases=self.bases,
+                        managers=self.managers,
+                    ),
+                ]
+            elif isinstance(operation, AlterField):
+                return [
+                    CreateModel(
+                        self.name,
+                        fields=[
+                            (n, operation.field if n == operation.name else v)
+                            for n, v in self.fields
+                        ],
+                        options=self.options,
+                        bases=self.bases,
+                        managers=self.managers,
+                    ),
+                ]
+            elif isinstance(operation, RemoveField):
+                options = self.options.copy()
+                for option_name in ("unique_together", "index_together"):
+                    option = options.pop(option_name, None)
+                    if option:
+                        option = set(
+                            filter(
+                                bool,
+                                (
+                                    tuple(
+                                        f for f in fields if f != operation.name_lower
+                                    )
+                                    for fields in option
+                                ),
+                            )
+                        )
+                        if option:
+                            options[option_name] = option
+                order_with_respect_to = options.get("order_with_respect_to")
+                if order_with_respect_to == operation.name_lower:
+                    del options["order_with_respect_to"]
+                return [
+                    CreateModel(
+                        self.name,
+                        fields=[
+                            (n, v)
+                            for n, v in self.fields
+                            if n.lower() != operation.name_lower
+                        ],
+                        options=options,
+                        bases=self.bases,
+                        managers=self.managers,
+                    ),
+                ]
+            elif isinstance(operation, RenameField):
+                options =

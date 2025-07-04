@@ -1,0 +1,515 @@
+the model class for this type of content."""
+        try:
+            return apps.get_model(self.app_label, self.model)
+        except LookupError:
+            return None
+
+    def get_object_for_this_type(self, **kwargs):
+        """
+        Return an object of this type for the keyword arguments given.
+        Basically, this is a proxy around this object_type's get_object() model
+        method. The ObjectNotExist exception, if thrown, will not be caught,
+        so code that calls this method should catch it.
+        """
+        return self.model_class()._base_manager.using(self._state.db).get(**kwargs)
+
+    def get_all_objects_for_this_type(self, **kwargs):
+        """
+        Return all objects of this type for the keyword arguments given.
+        """
+        return self.model_class()._base_manager.using(self._state.db).filter(**kwargs)
+
+    def natural_key(self):
+        return (self.app_label, self.model)
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./.pythonlibs/lib/python3.10/site-packages/django/contrib/flatpages/models.py ===
+
+from django.contrib.sites.models import Site
+from django.db import models
+from django.urls import NoReverseMatch, get_script_prefix, reverse
+from django.utils.encoding import iri_to_uri
+from django.utils.translation import gettext_lazy as _
+
+
+class FlatPage(models.Model):
+    url = models.CharField(_("URL"), max_length=100, db_index=True)
+    title = models.CharField(_("title"), max_length=200)
+    content = models.TextField(_("content"), blank=True)
+    enable_comments = models.BooleanField(_("enable comments"), default=False)
+    template_name = models.CharField(
+        _("template name"),
+        max_length=70,
+        blank=True,
+        help_text=_(
+            "Example: “flatpages/contact_page.html”. If this isn’t provided, "
+            "the system will use “flatpages/default.html”."
+        ),
+    )
+    registration_required = models.BooleanField(
+        _("registration required"),
+        help_text=_(
+            "If this is checked, only logged-in users will be able to view the page."
+        ),
+        default=False,
+    )
+    sites = models.ManyToManyField(Site, verbose_name=_("sites"))
+
+    class Meta:
+        db_table = "django_flatpage"
+        verbose_name = _("flat page")
+        verbose_name_plural = _("flat pages")
+        ordering = ["url"]
+
+    def __str__(self):
+        return "%s -- %s" % (self.url, self.title)
+
+    def get_absolute_url(self):
+        from .views import flatpage
+
+        for url in (self.url.lstrip("/"), self.url):
+            try:
+                return reverse(flatpage, kwargs={"url": url})
+            except NoReverseMatch:
+                pass
+        # Handle script prefix manually because we bypass reverse()
+        return iri_to_uri(get_script_prefix().rstrip("/") + self.url)
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./.pythonlibs/lib/python3.10/site-packages/django/contrib/gis/db/backends/base/models.py ===
+
+from django.contrib.gis import gdal
+
+
+class SpatialRefSysMixin:
+    """
+    The SpatialRefSysMixin is a class used by the database-dependent
+    SpatialRefSys objects to reduce redundant code.
+    """
+
+    @property
+    def srs(self):
+        """
+        Return a GDAL SpatialReference object.
+        """
+        # TODO: Is caching really necessary here?  Is complexity worth it?
+        if hasattr(self, "_srs"):
+            # Returning a clone of the cached SpatialReference object.
+            return self._srs.clone()
+        else:
+            # Attempting to cache a SpatialReference object.
+
+            # Trying to get from WKT first.
+            try:
+                self._srs = gdal.SpatialReference(self.wkt)
+                return self.srs
+            except Exception as e:
+                msg = e
+
+            try:
+                self._srs = gdal.SpatialReference(self.proj4text)
+                return self.srs
+            except Exception as e:
+                msg = e
+
+            raise Exception(
+                "Could not get OSR SpatialReference from WKT: %s\nError:\n%s"
+                % (self.wkt, msg)
+            )
+
+    @property
+    def ellipsoid(self):
+        """
+        Return a tuple of the ellipsoid parameters:
+        (semimajor axis, semiminor axis, and inverse flattening).
+        """
+        return self.srs.ellipsoid
+
+    @property
+    def name(self):
+        "Return the projection name."
+        return self.srs.name
+
+    @property
+    def spheroid(self):
+        "Return the spheroid name for this spatial reference."
+        return self.srs["spheroid"]
+
+    @property
+    def datum(self):
+        "Return the datum for this spatial reference."
+        return self.srs["datum"]
+
+    @property
+    def projected(self):
+        "Is this Spatial Reference projected?"
+        return self.srs.projected
+
+    @property
+    def local(self):
+        "Is this Spatial Reference local?"
+        return self.srs.local
+
+    @property
+    def geographic(self):
+        "Is this Spatial Reference geographic?"
+        return self.srs.geographic
+
+    @property
+    def linear_name(self):
+        "Return the linear units name."
+        return self.srs.linear_name
+
+    @property
+    def linear_units(self):
+        "Return the linear units."
+        return self.srs.linear_units
+
+    @property
+    def angular_name(self):
+        "Return the name of the angular units."
+        return self.srs.angular_name
+
+    @property
+    def angular_units(self):
+        "Return the angular units."
+        return self.srs.angular_units
+
+    @property
+    def units(self):
+        "Return a tuple of the units and the name."
+        if self.projected or self.local:
+            return (self.linear_units, self.linear_name)
+        elif self.geographic:
+            return (self.angular_units, self.angular_name)
+        else:
+            return (None, None)
+
+    @classmethod
+    def get_units(cls, wkt):
+        """
+        Return a tuple of (unit_value, unit_name) for the given WKT without
+        using any of the database fields.
+        """
+        return gdal.SpatialReference(wkt).units
+
+    @classmethod
+    def get_spheroid(cls, wkt, string=True):
+        """
+        Class method used by GeometryField on initialization to
+        retrieve the `SPHEROID[..]` parameters from the given WKT.
+        """
+        srs = gdal.SpatialReference(wkt)
+        sphere_params = srs.ellipsoid
+        sphere_name = srs["spheroid"]
+
+        if not string:
+            return sphere_name, sphere_params
+        else:
+            # `string` parameter used to place in format acceptable by PostGIS
+            if len(sphere_params) == 3:
+                radius, flattening = sphere_params[0], sphere_params[2]
+            else:
+                radius, flattening = sphere_params
+            return 'SPHEROID["%s",%s,%s]' % (sphere_name, radius, flattening)
+
+    def __str__(self):
+        """
+        Return the string representation, a 'pretty' OGC WKT.
+        """
+        return str(self.srs)
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./.pythonlibs/lib/python3.10/site-packages/django/contrib/gis/db/backends/oracle/models.py ===
+
+"""
+ The GeometryColumns and SpatialRefSys models for the Oracle spatial
+ backend.
+
+ It should be noted that Oracle Spatial does not have database tables
+ named according to the OGC standard, so the closest analogs are used.
+ For example, the `USER_SDO_GEOM_METADATA` is used for the GeometryColumns
+ model and the `SDO_COORD_REF_SYS` is used for the SpatialRefSys model.
+"""
+
+from django.contrib.gis.db import models
+from django.contrib.gis.db.backends.base.models import SpatialRefSysMixin
+
+
+class OracleGeometryColumns(models.Model):
+    "Maps to the Oracle USER_SDO_GEOM_METADATA table."
+    table_name = models.CharField(max_length=32)
+    column_name = models.CharField(max_length=1024)
+    srid = models.IntegerField(primary_key=True)
+    # TODO: Add support for `diminfo` column (type MDSYS.SDO_DIM_ARRAY).
+
+    class Meta:
+        app_label = "gis"
+        db_table = "USER_SDO_GEOM_METADATA"
+        managed = False
+
+    def __str__(self):
+        return "%s - %s (SRID: %s)" % (self.table_name, self.column_name, self.srid)
+
+    @classmethod
+    def table_name_col(cls):
+        """
+        Return the name of the metadata column used to store the feature table
+        name.
+        """
+        return "table_name"
+
+    @classmethod
+    def geom_col_name(cls):
+        """
+        Return the name of the metadata column used to store the feature
+        geometry column.
+        """
+        return "column_name"
+
+
+class OracleSpatialRefSys(models.Model, SpatialRefSysMixin):
+    "Maps to the Oracle MDSYS.CS_SRS table."
+    cs_name = models.CharField(max_length=68)
+    srid = models.IntegerField(primary_key=True)
+    auth_srid = models.IntegerField()
+    auth_name = models.CharField(max_length=256)
+    wktext = models.CharField(max_length=2046)
+    # Optional geometry representing the bounds of this coordinate
+    # system.  By default, all are NULL in the table.
+    cs_bounds = models.PolygonField(null=True)
+
+    class Meta:
+        app_label = "gis"
+        db_table = "CS_SRS"
+        managed = False
+
+    @property
+    def wkt(self):
+        return self.wktext
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./.pythonlibs/lib/python3.10/site-packages/django/contrib/gis/db/backends/postgis/models.py ===
+
+"""
+ The GeometryColumns and SpatialRefSys models for the PostGIS backend.
+"""
+
+from django.contrib.gis.db.backends.base.models import SpatialRefSysMixin
+from django.db import models
+
+
+class PostGISGeometryColumns(models.Model):
+    """
+    The 'geometry_columns' view from PostGIS. See the PostGIS
+    documentation at Ch. 4.3.2.
+    """
+
+    f_table_catalog = models.CharField(max_length=256)
+    f_table_schema = models.CharField(max_length=256)
+    f_table_name = models.CharField(max_length=256)
+    f_geometry_column = models.CharField(max_length=256)
+    coord_dimension = models.IntegerField()
+    srid = models.IntegerField(primary_key=True)
+    type = models.CharField(max_length=30)
+
+    class Meta:
+        app_label = "gis"
+        db_table = "geometry_columns"
+        managed = False
+
+    def __str__(self):
+        return "%s.%s - %dD %s field (SRID: %d)" % (
+            self.f_table_name,
+            self.f_geometry_column,
+            self.coord_dimension,
+            self.type,
+            self.srid,
+        )
+
+    @classmethod
+    def table_name_col(cls):
+        """
+        Return the name of the metadata column used to store the feature table
+        name.
+        """
+        return "f_table_name"
+
+    @classmethod
+    def geom_col_name(cls):
+        """
+        Return the name of the metadata column used to store the feature
+        geometry column.
+        """
+        return "f_geometry_column"
+
+
+class PostGISSpatialRefSys(models.Model, SpatialRefSysMixin):
+    """
+    The 'spatial_ref_sys' table from PostGIS. See the PostGIS
+    documentation at Ch. 4.2.1.
+    """
+
+    srid = models.IntegerField(primary_key=True)
+    auth_name = models.CharField(max_length=256)
+    auth_srid = models.IntegerField()
+    srtext = models.CharField(max_length=2048)
+    proj4text = models.CharField(max_length=2048)
+
+    class Meta:
+        app_label = "gis"
+        db_table = "spatial_ref_sys"
+        managed = False
+
+    @property
+    def wkt(self):
+        return self.srtext
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./.pythonlibs/lib/python3.10/site-packages/django/contrib/gis/db/backends/spatialite/models.py ===
+
+"""
+ The GeometryColumns and SpatialRefSys models for the SpatiaLite backend.
+"""
+
+from django.contrib.gis.db.backends.base.models import SpatialRefSysMixin
+from django.db import models
+
+
+class SpatialiteGeometryColumns(models.Model):
+    """
+    The 'geometry_columns' table from SpatiaLite.
+    """
+
+    f_table_name = models.CharField(max_length=256)
+    f_geometry_column = models.CharField(max_length=256)
+    coord_dimension = models.IntegerField()
+    srid = models.IntegerField(primary_key=True)
+    spatial_index_enabled = models.IntegerField()
+    type = models.IntegerField(db_column="geometry_type")
+
+    class Meta:
+        app_label = "gis"
+        db_table = "geometry_columns"
+        managed = False
+
+    def __str__(self):
+        return "%s.%s - %dD %s field (SRID: %d)" % (
+            self.f_table_name,
+            self.f_geometry_column,
+            self.coord_dimension,
+            self.type,
+            self.srid,
+        )
+
+    @classmethod
+    def table_name_col(cls):
+        """
+        Return the name of the metadata column used to store the feature table
+        name.
+        """
+        return "f_table_name"
+
+    @classmethod
+    def geom_col_name(cls):
+        """
+        Return the name of the metadata column used to store the feature
+        geometry column.
+        """
+        return "f_geometry_column"
+
+
+class SpatialiteSpatialRefSys(models.Model, SpatialRefSysMixin):
+    """
+    The 'spatial_ref_sys' table from SpatiaLite.
+    """
+
+    srid = models.IntegerField(primary_key=True)
+    auth_name = models.CharField(max_length=256)
+    auth_srid = models.IntegerField()
+    ref_sys_name = models.CharField(max_length=256)
+    proj4text = models.CharField(max_length=2048)
+    srtext = models.CharField(max_length=2048)
+
+    class Meta:
+        app_label = "gis"
+        db_table = "spatial_ref_sys"
+        managed = False
+
+    @property
+    def wkt(self):
+        return self.srtext
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./.pythonlibs/lib/python3.10/site-packages/django/contrib/redirects/models.py ===
+
+from django.contrib.sites.models import Site
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+
+class Redirect(models.Model):
+    site = models.ForeignKey(Site, models.CASCADE, verbose_name=_("site"))
+    old_path = models.CharField(
+        _("redirect from"),
+        max_length=200,
+        db_index=True,
+        help_text=_(
+            "This should be an absolute path, excluding the domain name. Example: "
+            "“/events/search/”."
+        ),
+    )
+    new_path = models.CharField(
+        _("redirect to"),
+        max_length=200,
+        blank=True,
+        help_text=_(
+            "This can be either an absolute path (as above) or a full URL "
+            "starting with a scheme such as “https://”."
+        ),
+    )
+
+    class Meta:
+        verbose_name = _("redirect")
+        verbose_name_plural = _("redirects")
+        db_table = "django_redirect"
+        unique_together = [["site", "old_path"]]
+        ordering = ["old_path"]
+
+    def __str__(self):
+        return "%s ---> %s" % (self.old_path, self.new_path)
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./.pythonlibs/lib/python3.10/site-packages/django/contrib/sessions/models.py ===
+
+from django.contrib.sessions.base_session import AbstractBaseSession, BaseSessionManager
+
+
+class SessionManager(BaseSessionManager):
+    use_in_migrations = True
+
+
+class Session(AbstractBaseSession):
+    """
+    Django provides full

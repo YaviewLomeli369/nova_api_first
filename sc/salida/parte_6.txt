@@ -1,0 +1,441 @@
+         self.name,
+            len(self.option_value or ""),
+        )
+
+    @property
+    def migration_name_fragment(self):
+        return "alter_%s_%s" % (self.name_lower, self.option_name)
+
+    def can_reduce_through(self, operation, app_label):
+        return super().can_reduce_through(operation, app_label) or (
+            isinstance(operation, AlterTogetherOptionOperation)
+            and type(operation) is not type(self)
+        )
+
+
+class AlterUniqueTogether(AlterTogetherOptionOperation):
+    """
+    Change the value of unique_together to the target one.
+    Input value of unique_together must be a set of tuples.
+    """
+
+    option_name = "unique_together"
+
+    def __init__(self, name, unique_together):
+        super().__init__(name, unique_together)
+
+
+class AlterIndexTogether(AlterTogetherOptionOperation):
+    """
+    Change the value of index_together to the target one.
+    Input value of index_together must be a set of tuples.
+    """
+
+    option_name = "index_together"
+
+    def __init__(self, name, index_together):
+        super().__init__(name, index_together)
+
+
+class AlterOrderWithRespectTo(ModelOptionOperation):
+    """Represent a change with the order_with_respect_to option."""
+
+    option_name = "order_with_respect_to"
+
+    def __init__(self, name, order_with_respect_to):
+        self.order_with_respect_to = order_with_respect_to
+        super().__init__(name)
+
+    def deconstruct(self):
+        kwargs = {
+            "name": self.name,
+            "order_with_respect_to": self.order_with_respect_to,
+        }
+        return (self.__class__.__qualname__, [], kwargs)
+
+    def state_forwards(self, app_label, state):
+        state.alter_model_options(
+            app_label,
+            self.name_lower,
+            {self.option_name: self.order_with_respect_to},
+        )
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        to_model = to_state.apps.get_model(app_label, self.name)
+        if self.allow_migrate_model(schema_editor.connection.alias, to_model):
+            from_model = from_state.apps.get_model(app_label, self.name)
+            # Remove a field if we need to
+            if (
+                from_model._meta.order_with_respect_to
+                and not to_model._meta.order_with_respect_to
+            ):
+                schema_editor.remove_field(
+                    from_model, from_model._meta.get_field("_order")
+                )
+            # Add a field if we need to (altering the column is untouched as
+            # it's likely a rename)
+            elif (
+                to_model._meta.order_with_respect_to
+                and not from_model._meta.order_with_respect_to
+            ):
+                field = to_model._meta.get_field("_order")
+                if not field.has_default():
+                    field.default = 0
+                schema_editor.add_field(
+                    from_model,
+                    field,
+                )
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        self.database_forwards(app_label, schema_editor, from_state, to_state)
+
+    def references_field(self, model_name, name, app_label):
+        return self.references_model(model_name, app_label) and (
+            self.order_with_respect_to is None or name == self.order_with_respect_to
+        )
+
+    def describe(self):
+        return "Set order_with_respect_to on %s to %s" % (
+            self.name,
+            self.order_with_respect_to,
+        )
+
+    @property
+    def migration_name_fragment(self):
+        return "alter_%s_order_with_respect_to" % self.name_lower
+
+
+class AlterModelOptions(ModelOptionOperation):
+    """
+    Set new model options that don't directly affect the database schema
+    (like verbose_name, permissions, ordering). Python code in migrations
+    may still need them.
+    """
+
+    # Model options we want to compare and preserve in an AlterModelOptions op
+    ALTER_OPTION_KEYS = [
+        "base_manager_name",
+        "default_manager_name",
+        "default_related_name",
+        "get_latest_by",
+        "managed",
+        "ordering",
+        "permissions",
+        "default_permissions",
+        "select_on_save",
+        "verbose_name",
+        "verbose_name_plural",
+    ]
+
+    def __init__(self, name, options):
+        self.options = options
+        super().__init__(name)
+
+    def deconstruct(self):
+        kwargs = {
+            "name": self.name,
+            "options": self.options,
+        }
+        return (self.__class__.__qualname__, [], kwargs)
+
+    def state_forwards(self, app_label, state):
+        state.alter_model_options(
+            app_label,
+            self.name_lower,
+            self.options,
+            self.ALTER_OPTION_KEYS,
+        )
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        pass
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        pass
+
+    def describe(self):
+        return "Change Meta options on %s" % self.name
+
+    @property
+    def migration_name_fragment(self):
+        return "alter_%s_options" % self.name_lower
+
+
+class AlterModelManagers(ModelOptionOperation):
+    """Alter the model's managers."""
+
+    serialization_expand_args = ["managers"]
+
+    def __init__(self, name, managers):
+        self.managers = managers
+        super().__init__(name)
+
+    def deconstruct(self):
+        return (self.__class__.__qualname__, [self.name, self.managers], {})
+
+    def state_forwards(self, app_label, state):
+        state.alter_model_managers(app_label, self.name_lower, self.managers)
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        pass
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        pass
+
+    def describe(self):
+        return "Change managers on %s" % self.name
+
+    @property
+    def migration_name_fragment(self):
+        return "alter_%s_managers" % self.name_lower
+
+
+class IndexOperation(Operation):
+    option_name = "indexes"
+
+    @cached_property
+    def model_name_lower(self):
+        return self.model_name.lower()
+
+
+class AddIndex(IndexOperation):
+    """Add an index on a model."""
+
+    def __init__(self, model_name, index):
+        self.model_name = model_name
+        if not index.name:
+            raise ValueError(
+                "Indexes passed to AddIndex operations require a name "
+                "argument. %r doesn't have one." % index
+            )
+        self.index = index
+
+    def state_forwards(self, app_label, state):
+        state.add_index(app_label, self.model_name_lower, self.index)
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.model_name)
+        if self.allow_migrate_model(schema_editor.connection.alias, model):
+            schema_editor.add_index(model, self.index)
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        model = from_state.apps.get_model(app_label, self.model_name)
+        if self.allow_migrate_model(schema_editor.connection.alias, model):
+            schema_editor.remove_index(model, self.index)
+
+    def deconstruct(self):
+        kwargs = {
+            "model_name": self.model_name,
+            "index": self.index,
+        }
+        return (
+            self.__class__.__qualname__,
+            [],
+            kwargs,
+        )
+
+    def describe(self):
+        if self.index.expressions:
+            return "Create index %s on %s on model %s" % (
+                self.index.name,
+                ", ".join([str(expression) for expression in self.index.expressions]),
+                self.model_name,
+            )
+        return "Create index %s on field(s) %s of model %s" % (
+            self.index.name,
+            ", ".join(self.index.fields),
+            self.model_name,
+        )
+
+    @property
+    def migration_name_fragment(self):
+        return "%s_%s" % (self.model_name_lower, self.index.name.lower())
+
+    def reduce(self, operation, app_label):
+        if isinstance(operation, RemoveIndex) and self.index.name == operation.name:
+            return []
+        if isinstance(operation, RenameIndex) and self.index.name == operation.old_name:
+            self.index.name = operation.new_name
+            return [AddIndex(model_name=self.model_name, index=self.index)]
+        return super().reduce(operation, app_label)
+
+
+class RemoveIndex(IndexOperation):
+    """Remove an index from a model."""
+
+    def __init__(self, model_name, name):
+        self.model_name = model_name
+        self.name = name
+
+    def state_forwards(self, app_label, state):
+        state.remove_index(app_label, self.model_name_lower, self.name)
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = from_state.apps.get_model(app_label, self.model_name)
+        if self.allow_migrate_model(schema_editor.connection.alias, model):
+            from_model_state = from_state.models[app_label, self.model_name_lower]
+            index = from_model_state.get_index_by_name(self.name)
+            schema_editor.remove_index(model, index)
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.model_name)
+        if self.allow_migrate_model(schema_editor.connection.alias, model):
+            to_model_state = to_state.models[app_label, self.model_name_lower]
+            index = to_model_state.get_index_by_name(self.name)
+            schema_editor.add_index(model, index)
+
+    def deconstruct(self):
+        kwargs = {
+            "model_name": self.model_name,
+            "name": self.name,
+        }
+        return (
+            self.__class__.__qualname__,
+            [],
+            kwargs,
+        )
+
+    def describe(self):
+        return "Remove index %s from %s" % (self.name, self.model_name)
+
+    @property
+    def migration_name_fragment(self):
+        return "remove_%s_%s" % (self.model_name_lower, self.name.lower())
+
+
+class RenameIndex(IndexOperation):
+    """Rename an index."""
+
+    def __init__(self, model_name, new_name, old_name=None, old_fields=None):
+        if not old_name and not old_fields:
+            raise ValueError(
+                "RenameIndex requires one of old_name and old_fields arguments to be "
+                "set."
+            )
+        if old_name and old_fields:
+            raise ValueError(
+                "RenameIndex.old_name and old_fields are mutually exclusive."
+            )
+        self.model_name = model_name
+        self.new_name = new_name
+        self.old_name = old_name
+        self.old_fields = old_fields
+
+    @cached_property
+    def old_name_lower(self):
+        return self.old_name.lower()
+
+    @cached_property
+    def new_name_lower(self):
+        return self.new_name.lower()
+
+    def deconstruct(self):
+        kwargs = {
+            "model_name": self.model_name,
+            "new_name": self.new_name,
+        }
+        if self.old_name:
+            kwargs["old_name"] = self.old_name
+        if self.old_fields:
+            kwargs["old_fields"] = self.old_fields
+        return (self.__class__.__qualname__, [], kwargs)
+
+    def state_forwards(self, app_label, state):
+        if self.old_fields:
+            state.add_index(
+                app_label,
+                self.model_name_lower,
+                models.Index(fields=self.old_fields, name=self.new_name),
+            )
+            state.remove_model_options(
+                app_label,
+                self.model_name_lower,
+                AlterIndexTogether.option_name,
+                self.old_fields,
+            )
+        else:
+            state.rename_index(
+                app_label, self.model_name_lower, self.old_name, self.new_name
+            )
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.model_name)
+        if not self.allow_migrate_model(schema_editor.connection.alias, model):
+            return
+
+        if self.old_fields:
+            from_model = from_state.apps.get_model(app_label, self.model_name)
+            columns = [
+                from_model._meta.get_field(field).column for field in self.old_fields
+            ]
+            matching_index_name = schema_editor._constraint_names(
+                from_model, column_names=columns, index=True
+            )
+            if len(matching_index_name) != 1:
+                raise ValueError(
+                    "Found wrong number (%s) of indexes for %s(%s)."
+                    % (
+                        len(matching_index_name),
+                        from_model._meta.db_table,
+                        ", ".join(columns),
+                    )
+                )
+            old_index = models.Index(
+                fields=self.old_fields,
+                name=matching_index_name[0],
+            )
+        else:
+            from_model_state = from_state.models[app_label, self.model_name_lower]
+            old_index = from_model_state.get_index_by_name(self.old_name)
+        # Don't alter when the index name is not changed.
+        if old_index.name == self.new_name:
+            return
+
+        to_model_state = to_state.models[app_label, self.model_name_lower]
+        new_index = to_model_state.get_index_by_name(self.new_name)
+        schema_editor.rename_index(model, old_index, new_index)
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        if self.old_fields:
+            # Backward operation with unnamed index is a no-op.
+            return
+
+        self.new_name_lower, self.old_name_lower = (
+            self.old_name_lower,
+            self.new_name_lower,
+        )
+        self.new_name, self.old_name = self.old_name, self.new_name
+
+        self.database_forwards(app_label, schema_editor, from_state, to_state)
+
+        self.new_name_lower, self.old_name_lower = (
+            self.old_name_lower,
+            self.new_name_lower,
+        )
+        self.new_name, self.old_name = self.old_name, self.new_name
+
+    def describe(self):
+        if self.old_name:
+            return (
+                f"Rename index {self.old_name} on {self.model_name} to {self.new_name}"
+            )
+        return (
+            f"Rename unnamed index for {self.old_fields} on {self.model_name} to "
+            f"{self.new_name}"
+        )
+
+    @property
+    def migration_name_fragment(self):
+        if self.old_name:
+            return "rename_%s_%s" % (self.old_name_lower, self.new_name_lower)
+        return "rename_%s_%s_%s" % (
+            self.model_name_lower,
+            "_".join(self.old_fields),
+            self.new_name_lower,
+        )
+
+    def reduce(self, operation, app_label):
+        if (
+            isinstance(operation, RenameIndex)
+            and self.model_name_lower == operation.model_name_lower
+            and operation.old_name
+            and self.new_name_lower ==

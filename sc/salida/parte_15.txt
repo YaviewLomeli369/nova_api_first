@@ -1,0 +1,409 @@
+on_delete=models.CASCADE, related_name='compras')
+    proveedor = models.ForeignKey(Proveedor, on_delete=models.PROTECT, related_name='compras')
+    fecha = models.DateTimeField(default=timezone.now)
+    total = models.DecimalField(max_digits=14, decimal_places=2)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
+    usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name='compras_creadas')
+
+    class Meta:
+        verbose_name = "Compra"
+        verbose_name_plural = "Compras"
+        ordering = ['-fecha']
+        indexes = [
+            models.Index(fields=['empresa', 'fecha']),
+            models.Index(fields=['estado']),
+        ]
+
+    def __str__(self):
+        return f'Compra #{self.id} - {self.proveedor.nombre} - {self.fecha.strftime("%Y-%m-%d")}'
+
+
+class DetalleCompra(models.Model):
+    compra = models.ForeignKey(Compra, on_delete=models.CASCADE, related_name='detalles')
+    producto = models.ForeignKey(Producto, on_delete=models.PROTECT, related_name='detalles_compra')
+    cantidad = models.DecimalField(max_digits=12, decimal_places=2)
+    precio_unitario = models.DecimalField(max_digits=14, decimal_places=2)
+
+    def clean(self):
+        if self.cantidad <= 0:
+            raise ValidationError("La cantidad debe ser mayor a cero.")
+        if self.precio_unitario <= 0:
+            raise ValidationError("El precio unitario debe ser mayor a cero.")
+
+
+    class Meta:
+        verbose_name = "Detalle de Compra"
+        verbose_name_plural = "Detalles de Compras"
+        unique_together = ('compra', 'producto')
+
+    def __str__(self):
+        return f'{self.producto.nombre} - {self.cantidad} x {self.precio_unitario}'
+
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./finanzas/models.py ===
+
+# finanzas/models.py
+from .constants import ESTADO_CUENTA_CHOICES
+from django.db import models
+from django.utils import timezone
+from ventas.models import Venta
+from compras.models import Compra
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
+class CuentaPorCobrar(models.Model):
+    ESTADO_CHOICES = ESTADO_CUENTA_CHOICES
+
+    venta = models.ForeignKey(Venta, on_delete=models.CASCADE, related_name='cuentas_por_cobrar')
+    monto = models.DecimalField(max_digits=14, decimal_places=2)
+    fecha_vencimiento = models.DateField()
+    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='PENDIENTE')
+
+    def clean(self):
+        if self.monto <= 0:
+            raise ValidationError("El monto debe ser mayor a cero.")
+        if self.fecha_vencimiento < timezone.now().date():
+            raise ValidationError("La fecha de vencimiento no puede estar en el pasado.")
+
+
+    class Meta:
+        verbose_name = "Cuenta por Cobrar"
+        verbose_name_plural = "Cuentas por Cobrar"
+        ordering = ['fecha_vencimiento']
+        indexes = [
+            models.Index(fields=['fecha_vencimiento', 'estado']),
+            models.Index(fields=['venta']),
+        ]
+
+    def __str__(self):
+        return f"CxC Venta {self.venta.id} - {self.estado} - ${self.monto}"
+
+
+class CuentaPorPagar(models.Model):
+    ESTADO_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('PAGADO', 'Pagado'),
+        ('VENCIDO', 'Vencido'),
+    ]
+
+    def clean(self):
+        if self.monto <= 0:
+            raise ValidationError("El monto debe ser mayor a cero.")
+        if self.fecha_vencimiento < timezone.now().date():
+            raise ValidationError("La fecha de vencimiento no puede estar en el pasado.")
+
+    compra = models.ForeignKey(Compra, on_delete=models.CASCADE, related_name='cuentas_por_pagar')
+    monto = models.DecimalField(max_digits=14, decimal_places=2)
+    fecha_vencimiento = models.DateField()
+    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='PENDIENTE')
+
+    class Meta:
+        verbose_name = "Cuenta por Pagar"
+        verbose_name_plural = "Cuentas por Pagar"
+        ordering = ['fecha_vencimiento']
+        indexes = [
+            models.Index(fields=['fecha_vencimiento', 'estado']),
+            models.Index(fields=['compra']),
+        ]
+
+    def __str__(self):
+        return f"CxP Compra {self.compra.id} - {self.estado} - ${self.monto}"
+
+
+class Pago(models.Model):
+    METODO_PAGO_CHOICES = [
+        ('EFECTIVO', 'Efectivo'),
+        ('TARJETA', 'Tarjeta'),
+        ('TRANSFERENCIA', 'Transferencia'),
+        ('CHEQUE', 'Cheque'),
+        ('OTRO', 'Otro'),
+    ]
+
+    cuenta_cobrar = models.ForeignKey(CuentaPorCobrar, on_delete=models.CASCADE, null=True, blank=True, related_name='pagos')
+    cuenta_pagar = models.ForeignKey(CuentaPorPagar, on_delete=models.CASCADE, null=True, blank=True, related_name='pagos')
+    monto = models.DecimalField(max_digits=14, decimal_places=2)
+    fecha = models.DateField(default=timezone.now)
+    metodo_pago = models.CharField(max_length=50)
+
+    def clean(self):
+        if self.monto <= 0:
+            raise ValidationError("El monto del pago debe ser positivo.")
+        if not self.cuenta_cobrar and not self.cuenta_pagar:
+            raise ValidationError("El pago debe estar vinculado a una cuenta por pagar o por cobrar.")
+
+    class Meta:
+        verbose_name = "Pago"
+        verbose_name_plural = "Pagos"
+        ordering = ['-fecha']
+        indexes = [
+            models.Index(fields=['fecha']),
+            models.Index(fields=['metodo_pago']),
+        ]
+
+    def __str__(self):
+        cuenta = 'CxC' if self.cuenta_cobrar else 'CxP' if self.cuenta_pagar else 'N/A'
+        referencia_id = self.cuenta_cobrar.id if self.cuenta_cobrar else self.cuenta_pagar.id if self.cuenta_pagar else 'N/A'
+        return f"Pago {cuenta} ID {referencia_id} - ${self.monto} - {self.fecha}"
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./contabilidad/models.py ===
+
+# contabilidad/models.py
+
+from django.db import models
+from django.utils import timezone
+from accounts.models import Usuario, Empresa
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
+
+class AsientoContable(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='asientos_contables')
+    fecha = models.DateField(default=timezone.now)
+    concepto = models.CharField(max_length=255)
+    usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name='asientos_creados')
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Asiento Contable"
+        verbose_name_plural = "Asientos Contables"
+        ordering = ['-fecha', '-creado_en']
+        indexes = [
+            models.Index(fields=['empresa', 'fecha']),
+        ]
+
+    def __str__(self):
+        return f"Asiento {self.id} - {self.concepto} ({self.fecha})"
+
+
+class DetalleAsiento(models.Model):
+    asiento = models.ForeignKey(AsientoContable, on_delete=models.CASCADE, related_name='detalles')
+    cuenta_contable = models.CharField(max_length=100)  # Ejemplo: "1105 - Caja"
+    debe = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    haber = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+    def clean(self):
+        if self.debe < 0 or self.haber < 0:
+            raise ValidationError("Debe y Haber no pueden ser negativos.")
+        if self.debe == 0 and self.haber == 0:
+            raise ValidationError("Debe o Haber deben tener un valor distinto de cero.")
+
+
+    class Meta:
+        verbose_name = "Detalle de Asiento"
+        verbose_name_plural = "Detalles de Asientos"
+        ordering = ['cuenta_contable']
+        indexes = [
+            models.Index(fields=['asiento', 'cuenta_contable']),
+        ]
+        # Opcional: agregar restricción para que debe y haber no sean ambos cero, se haría con CheckConstraint (Django 2.2+)
+        constraints = [
+            models.CheckConstraint(
+                check=~(models.Q(debe=0) & models.Q(haber=0)),
+                name='debe_o_haber_no_pueden_ser_cero',
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.cuenta_contable} | Debe: {self.debe} | Haber: {self.haber}"
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./rrhh/models.py ===
+
+# rrhh/models.py
+
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
+class Empleado(models.Model):
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='empleados')
+    nombre = models.CharField(max_length=200)
+    rfc = models.CharField(max_length=13, blank=True, null=True)
+    puesto = models.CharField(max_length=100)
+    salario = models.DecimalField(max_digits=14, decimal_places=2)
+
+    def clean(self):
+        if self.salario < 0:
+            raise ValidationError("El salario no puede ser negativo.")
+
+
+    class Meta:
+        verbose_name = "Empleado"
+        verbose_name_plural = "Empleados"
+        ordering = ['nombre']
+        indexes = [
+            models.Index(fields=['empresa', 'nombre']),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre} - {self.puesto}"
+
+
+class Nomina(models.Model):
+    ESTADO_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('PAGADA', 'Pagada'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+
+    def clean(self):
+        if self.salario < 0:
+            raise ValidationError("El salario no puede ser negativo.")
+
+    empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='nominas')
+    periodo = models.CharField(max_length=50, help_text="Ejemplo: 'Julio 2025'")
+    total = models.DecimalField(max_digits=14, decimal_places=2)
+    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='PENDIENTE')
+
+    class Meta:
+        verbose_name = "Nómina"
+        verbose_name_plural = "Nóminas"
+        ordering = ['-periodo']
+        indexes = [
+            models.Index(fields=['empleado', 'periodo']),
+            models.Index(fields=['estado']),
+        ]
+
+    def __str__(self):
+        return f"Nómina {self.periodo} - {self.empleado.nombre} - {self.estado}"
+
+
+class Asistencia(models.Model):
+    empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='asistencias')
+    fecha = models.DateField()
+    hora_entrada = models.TimeField()
+    hora_salida = models.TimeField()
+
+    class Meta:
+        verbose_name = "Asistencia"
+        verbose_name_plural = "Asistencias"
+        ordering = ['-fecha']
+        indexes = [
+            models.Index(fields=['empleado', 'fecha']),
+        ]
+
+    def __str__(self):
+        return f"Asistencia {self.empleado.nombre} - {self.fecha}"
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./documentos/models.py ===
+
+# documentos/models.py
+
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+from django.db import models
+from django.utils import timezone
+
+
+class DocumentoFiscal(models.Model):
+    TIPO_DOCUMENTO_CHOICES = [
+        ('CFDI', 'CFDI'),
+        ('XML', 'XML'),
+        ('PDF', 'PDF'),
+        ('OTRO', 'Otro'),
+    ]
+
+    tipo_documento = models.CharField(
+        max_length=10,
+        choices=TIPO_DOCUMENTO_CHOICES,
+        default='CFDI',
+        help_text="Tipo de documento fiscal (CFDI, XML, PDF, etc.)"
+    )
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        help_text="Tipo de modelo referenciado (venta, compra, asiento, etc.)"
+    )
+    object_id = models.PositiveIntegerField(
+        help_text="ID de la entidad relacionada"
+    )
+    referencia = GenericForeignKey('content_type', 'object_id')
+
+    archivo = models.FileField(
+        upload_to='documentos_fiscales/%Y/%m/%d/',
+        help_text="Archivo digital del documento (PDF, XML, etc.)"
+    )
+    fecha_emision = models.DateField(
+        default=timezone.now,
+        help_text="Fecha de emisión del documento"
+    )
+
+    class Meta:
+        verbose_name = "Documento Fiscal"
+        verbose_name_plural = "Documentos Fiscales"
+        indexes = [
+            models.Index(fields=['tipo_documento']),
+            models.Index(fields=['content_type', 'object_id']),
+        ]
+        ordering = ['-fecha_emision']
+
+    def __str__(self):
+        return f"{self.get_tipo_documento_display()} - Ref: {self.referencia} - {self.fecha_emision}"
+
+
+# === Fin de: {ruta} ===
+
+
+# === Contenido de: ./core/models.py ===
+
+# core/models.py
+
+from django.db import models
+from django.utils import timezone
+
+
+class Empresa(models.Model):
+    nombre = models.CharField(max_length=150, unique=True)
+    rfc = models.CharField(max_length=13, unique=True)  # RFC México: 12 o 13 caracteres
+    domicilio_fiscal = models.TextField()
+    regimen_fiscal = models.CharField(max_length=100)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Empresa"
+        verbose_name_plural = "Empresas"
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
+class Sucursal(models.Model):
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='sucursales')
+    nombre = models.CharField(max_length=150)
+    direccion = models.TextField()
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Sucursal"
+        verbose_name_plural = "Sucursales"
+        unique_together = ('empresa', 'nombre')
+        ordering = ['empresa', 'nombre']
+        indexes = [
+            models.Index(fields=['empresa', 'nombre']),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre} ({self.empresa.nombre})"
+
+
+# === Fin de: {ruta} ===
+
+
