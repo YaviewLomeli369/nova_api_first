@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.urls.conf import include
 
 #JSON RESPONSE
 from django.http import JsonResponse
@@ -30,4 +31,7 @@ def ping(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/ping/', ping),
+
+    # Aquí montas los JWT
+    path('api/auth/', include('accounts.urls')),  
 ]

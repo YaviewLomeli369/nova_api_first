@@ -4,6 +4,39 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from core.models import Empresa
+from django.contrib.auth import get_user_model
+from django.conf import settings
+
+# accounts/models.py
+
+from django.core.exceptions import ValidationError
+
+class Auditoria(models.Model):
+    usuario = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name="auditorias")
+    accion = models.CharField(max_length=255)
+    tabla_afectada = models.CharField(max_length=255)
+    registro_afectado = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Auditoría'
+        verbose_name_plural = 'Auditorías'
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.usuario} - {self.accion} ({self.timestamp})"
+
+    def clean(self):
+        """Validar antes de guardar."""
+        if not self.usuario:
+            raise ValidationError("El campo 'usuario' es obligatorio.")
+        if not self.accion:
+            raise ValidationError("El campo 'acción' es obligatorio.")
+        if not self.tabla_afectada:
+            raise ValidationError("El campo 'tabla_afectada' es obligatorio.")
+        if not self.registro_afectado:
+            raise ValidationError("El campo 'registro_afectado' es obligatorio.")
+
 
 
 class Rol(models.Model):

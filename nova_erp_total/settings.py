@@ -26,7 +26,8 @@ SECRET_KEY = 'django-insecure-qamg-)bhge&qtj+!*ayn4+*vp6=u708^1^$nu5hf7#1refr+do
 DEBUG = True
 
 ALLOWED_HOSTS = [ '*' ]
-AUTH_USER_MODEL = 'accounts.Usuario'
+
+
 
 # Application definition
 
@@ -56,6 +57,8 @@ INSTALLED_APPS = [
     'corsheaders',
 ]
 
+AUTH_USER_MODEL = 'accounts.Usuario'
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -71,6 +74,8 @@ MIDDLEWARE = [
 ]
 
 REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,  # Páginas de 20 resultados
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
@@ -79,10 +84,38 @@ REST_FRAMEWORK = {
     ),
 }
 
+# settings.py
+# LOGGING = {
+#     'version': 1,
+#     'disable_existing_loggers': False,
+#     'handlers': {
+#         'console': {
+#             'level': 'DEBUG',
+#             'class': 'logging.StreamHandler',
+#         },
+#     },
+#     'loggers': {
+#         'django': {
+#             'handlers': ['console'],
+#             'level': 'INFO',
+#             'propagate': True,
+#         },
+#     },
+# }
+
 SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
 }
+
+AUTHENTICATION_BACKENDS = (
+    'social_core.backends.google.GoogleOAuth2',
+    'social_core.backends.microsoft.MicrosoftOAuth2',
+    'django.contrib.auth.backends.ModelBackend',
+)
+
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = 'your-client-id'
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = 'your-client-secret'
 
 
 CORS_ALLOW_ALL_ORIGINS = True
