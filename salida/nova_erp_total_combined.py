@@ -1,3 +1,90 @@
+
+# --- /home/runner/workspace/nova_erp_total/wsgi.py ---
+"""
+WSGI config for nova_erp_total project.
+
+It exposes the WSGI callable as a module-level variable named ``application``.
+
+For more information on this file, see
+https://docs.djangoproject.com/en/5.0/howto/deployment/wsgi/
+"""
+
+import os
+
+from django.core.wsgi import get_wsgi_application
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'nova_erp_total.settings')
+
+application = get_wsgi_application()
+
+
+
+# --- /home/runner/workspace/nova_erp_total/__init__.py ---
+
+
+
+# --- /home/runner/workspace/nova_erp_total/asgi.py ---
+"""
+ASGI config for nova_erp_total project.
+
+It exposes the ASGI callable as a module-level variable named ``application``.
+
+For more information on this file, see
+https://docs.djangoproject.com/en/5.0/howto/deployment/asgi/
+"""
+
+import os
+
+from django.core.asgi import get_asgi_application
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'nova_erp_total.settings')
+
+application = get_asgi_application()
+
+
+
+# --- /home/runner/workspace/nova_erp_total/urls.py ---
+"""
+URL configuration for nova_erp_total project.
+
+The `urlpatterns` list routes URLs to views. For more information please see:
+    https://docs.djangoproject.com/en/5.0/topics/http/urls/
+Examples:
+Function views
+    1. Add an import:  from my_app import views
+    2. Add a URL to urlpatterns:  path('', views.home, name='home')
+Class-based views
+    1. Add an import:  from other_app.views import Home
+    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
+Including another URLconf
+    1. Import the include() function: from django.urls import include, path
+    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+"""
+from django.contrib import admin
+from django.urls import path
+from django.urls.conf import include
+
+#JSON RESPONSE
+from django.http import JsonResponse
+
+
+#PRUEBA JSON RESOPNSE
+def ping(request):
+    return JsonResponse({"status": "ok", "message": "Nova ERP API is running"})
+
+
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('api/ping/', ping),
+
+    # Aquí montas los JWT
+    path('api/auth/', include('accounts.urls')),  
+]
+
+
+
+# --- /home/runner/workspace/nova_erp_total/settings.py ---
 """
 Django settings for nova_erp_total project.
 
@@ -38,7 +125,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # 'django_filters'
     
 
     # Apps locales
@@ -58,8 +144,6 @@ INSTALLED_APPS = [
     'corsheaders',
 ]
 
-INSTALLED_APPS += ['django_filters']
-
 AUTH_USER_MODEL = 'accounts.Usuario'
 
 MIDDLEWARE = [
@@ -77,9 +161,8 @@ MIDDLEWARE = [
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,  # Páginas de 20 resultados
+    'PAGE_SIZE': 20,  # Páginas de 20 resultados
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
@@ -196,3 +279,5 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+

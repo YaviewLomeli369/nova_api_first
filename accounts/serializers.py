@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from .models import Usuario, Rol
+from .models import Usuario, Rol, Auditoria
 from core.models import Empresa
 import pyotp
 
@@ -50,14 +50,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     token = serializers.CharField()
     password = serializers.CharField()
 
-# Auditoría
-# class AuditoriaSerializer(serializers.Serializer):
-#     id = serializers.IntegerField()
-#     usuario_id = serializers.IntegerField()
-#     accion = serializers.CharField()
-#     tabla_afectada = serializers.CharField()
-#     registro_afectado = serializers.CharField()
-#     timestamp = serializers.DateTimeField()
+
 class AuditoriaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Auditoria
@@ -68,3 +61,42 @@ class AuditoriaSerializer(serializers.ModelSerializer):
             'tabla_afectada': {'required': True},
             'registro_afectado': {'required': True},
         }
+
+
+#PRUEBA
+class RolSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Rol
+        fields = '__all__'  # O los campos específicos que quieras incluir
+
+
+class UsuarioRegistroSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = Usuario
+        fields = ['empresa', 'rol', 'username', 'email', 'password']
+
+    def create(self, validated_data):
+        return Usuario.objects.create_user(**validated_data)
+
+# Serializer para crear usuario
+class UsuarioCreateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    class Meta:
+        model = Usuario
+        fields = ['empresa', 'rol', 'username', 'email', 'password']
+
+    def create(self, validated_data):
+        return Usuario.objects.create_user(**validated_data)
+
+# Serializer para listar, actualizar, eliminar usuario
+class UsuarioDetailSerializer(serializers.ModelSerializer):
+    empresa_nombre = serializers.CharField(source='empresa.nombre', read_only=True)
+    rol_nombre = serializers.CharField(source='rol.nombre', read_only=True)
+
+    class Meta:
+        model = Usuario
+        exclude = ['password']
+        read_only_fields = ['id', 'fecha_creacion', 'empresa_nombre', 'rol_nombre']

@@ -1,10 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from accounts.views import auth, profile, password_reset, mfa, audit
+from accounts.views import auth, profile, password_reset, mfa, audit, users
 from accounts.views.roles import RolViewSet
+from accounts.views.users import UsuarioViewSet
 
 router = DefaultRouter()
-router.register(r'roles', RolViewSet)
+router.register(r'users', users.UsuarioViewSet, basename='usuarios')
+router.register(r'roles', roles.RolViewSet)
 
 urlpatterns = [
     path('login/', auth.LoginView.as_view()),
