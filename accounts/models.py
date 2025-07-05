@@ -87,6 +87,8 @@ class UsuarioManager(BaseUserManager):
 
 
 class Usuario(AbstractBaseUser, PermissionsMixin):
+    mfa_enabled = models.BooleanField(default=False)
+    mfa_secret = models.CharField(max_length=32, blank=True, null=True)  # Base32 secreto TOTP
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='usuarios')
     rol = models.ForeignKey(Rol, on_delete=models.SET_NULL, null=True, blank=True, related_name='usuarios')
     username = models.CharField(max_length=150, unique=True)

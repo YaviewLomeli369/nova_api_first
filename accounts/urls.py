@@ -5,6 +5,7 @@ from accounts.views.roles import RolViewSet
 from accounts.views.users import UsuarioViewSet
 from accounts.views.audit import AuditLogListView, AuditLogExportCSV
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from .views.mfa import MFAEnableView, MFAVerifyView, MFADisableView
 
 router = DefaultRouter()
 router.register(r'users', users.UsuarioViewSet, basename='usuarios')
@@ -18,9 +19,16 @@ urlpatterns = [
     path('profile/', profile.ProfileView.as_view()),
     path('password-reset/request/', password_reset.PasswordResetRequestView.as_view()),
     path('password-reset/confirm/', password_reset.PasswordResetConfirmView.as_view()),
-    path('2fa/enable/', mfa.EnableMFAView.as_view()),
-    path('2fa/verify/', mfa.VerifyMFAView.as_view()),
+
+    
+    # path('2fa/enable/', mfa.EnableMFAView.as_view()),
+    # path('2fa/verify/', mfa.VerifyMFAView.as_view()),
+    path('auth/2fa/enable/', MFAEnableView.as_view(), name='mfa-enable'),
+    path('auth/2fa/verify/', MFAVerifyView.as_view(), name='mfa-verify'),
+    path('auth/2fa/disable/', MFADisableView.as_view(), name='mfa-disable'),
+    
     path('activity/', audit.ActivityLogView.as_view()),
+    
     # path('audit-log/', audit.AuditLogView.as_view()),
     path('audit-log/', AuditLogListView.as_view(), name='audit-log-list'),
     path('audit-log/export-csv/', AuditLogExportCSV.as_view(), name='audit-log-export-csv'),

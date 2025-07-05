@@ -117,3 +117,13 @@ class UsuarioDetailSerializer(serializers.ModelSerializer):
         model = Usuario
         exclude = ['password']
         read_only_fields = ['id', 'fecha_creacion', 'empresa_nombre', 'rol_nombre']
+
+class MFAEnableSerializer(serializers.Serializer):
+    # En la activación solo se confirma que el usuario quiere activar
+    pass
+
+class MFAVerifySerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=6)
+
+class MFADisableSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=6)
