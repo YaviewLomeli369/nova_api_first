@@ -1,8 +1,43 @@
+# accounts/views/audit.py
+from rest_framework import generics, filters
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.permissions import IsAdminUser
+from rest_framework.pagination import PageNumberPagination
+from accounts.models import Auditoria
+from accounts.serializers import AuditoriaSerializer
+from accounts.filters import AuditoriaFilter
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from accounts.models import Auditoria
 from accounts.serializers import AuditoriaSerializer
+from django.http import HttpResponse
+import csv
+
+class AuditLogExportCSV(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        # Aplicar filtros con el mismo filtro set
+        filtro = AuditoriaFilter(request.GET, queryset=Auditoria.objects.all())
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="audit_log.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'Usuario', 'Acción', 'Tabla', 'Registro Afectado', 'Fecha/Hora'])
+
+        for entry in filtro.qs.order_by('-timestamp'):
+            writer.writerow([
+                entry.id,
+                str(entry.usuario),
+                entry.accion,
+                entry.tabla_afectada,
+                entry.registro_afectado,
+                entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            ])
+
+        return response
 
 class ActivityLogView(APIView):
     permission_classes = [IsAuthenticated]
@@ -19,3 +54,18 @@ class AuditLogView(APIView):
         logs = Auditoria.objects.all().order_by('-timestamp')[:200]
         data = AuditoriaSerializer(logs, many=True).data
         return Response(data)
+
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class AuditLogListView(generics.ListAPIView):
+    queryset = Auditoria.objects.all()
+    serializer_class = AuditoriaSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_class = AuditoriaFilter
+    ordering_fields = ['timestamp', 'usuario__username', 'accion', 'tabla_afectada']
+    ordering = ['-timestamp']
+    pagination_class = StandardResultsSetPagination

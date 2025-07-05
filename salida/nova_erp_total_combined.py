@@ -67,6 +67,8 @@ from django.urls.conf import include
 #JSON RESPONSE
 from django.http import JsonResponse
 
+#SPECTACULAR
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 #PRUEBA JSON RESOPNSE
 def ping(request):
@@ -79,7 +81,11 @@ urlpatterns = [
     path('api/ping/', ping),
 
     # Aquí montas los JWT
-    path('api/auth/', include('accounts.urls')),  
+    path('api/auth/', include('accounts.urls')),
+
+    #SPECTACULAR
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 ]
 
 
@@ -125,6 +131,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # 'django_filters'
     
 
     # Apps locales
@@ -144,6 +151,8 @@ INSTALLED_APPS = [
     'corsheaders',
 ]
 
+INSTALLED_APPS += ['django_filters','drf_spectacular']
+
 AUTH_USER_MODEL = 'accounts.Usuario'
 
 MIDDLEWARE = [
@@ -158,20 +167,32 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    #AUDITARIA MIDDLEWARE
+    'core.middleware.auditoria.AuditoriaMiddleware',
 ]
 
 REST_FRAMEWORK = {
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,  # Páginas de 20 resultados
+    'PAGE_SIZE': 10,  # Páginas de 20 resultados
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
-# settings.py
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Nova ERP API',
+    'DESCRIPTION': 'Documentación de la API del sistema Nova ERP',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
+
+# settings.py DESPUES SE DESCOMENTARA CON LOGINS CREO
 # LOGGING = {
 #     'version': 1,
 #     'disable_existing_loggers': False,

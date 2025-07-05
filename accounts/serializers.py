@@ -47,27 +47,44 @@ class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
+    uidb64 = serializers.CharField()  # nuevo
     token = serializers.CharField()
-    password = serializers.CharField()
+    password = serializers.CharField(min_length=8)
+
+
 
 
 class AuditoriaSerializer(serializers.ModelSerializer):
+    usuario = serializers.StringRelatedField()
+
     class Meta:
         model = Auditoria
-        fields = ['id', 'usuario', 'accion', 'tabla_afectada', 'registro_afectado', 'timestamp']
-        read_only_fields = ['id', 'timestamp']  # No queremos que se pueda modificar el ID ni el timestamp
-        extra_kwargs = {
-            'accion': {'required': True},
-            'tabla_afectada': {'required': True},
-            'registro_afectado': {'required': True},
-        }
+        fields = [
+            'id',
+            'usuario',
+            'accion',
+            'tabla_afectada',
+            'registro_afectado',
+            'timestamp',
+        ]
+        
+# class AuditoriaSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Auditoria
+#         fields = ['id', 'usuario', 'accion', 'tabla_afectada', 'registro_afectado', 'timestamp']
+#         read_only_fields = ['id', 'timestamp']  # No queremos que se pueda modificar el ID ni el timestamp
+#         extra_kwargs = {
+#             'accion': {'required': True},
+#             'tabla_afectada': {'required': True},
+#             'registro_afectado': {'required': True},
+#         }
 
 
 #PRUEBA
 class RolSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rol
-        fields = '__all__'  # O los campos específicos que quieras incluir
+        fields = '__all__'
 
 
 class UsuarioRegistroSerializer(serializers.ModelSerializer):

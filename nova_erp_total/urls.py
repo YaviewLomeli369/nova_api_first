@@ -21,6 +21,8 @@ from django.urls.conf import include
 #JSON RESPONSE
 from django.http import JsonResponse
 
+#SPECTACULAR
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 #PRUEBA JSON RESOPNSE
 def ping(request):
@@ -33,5 +35,9 @@ urlpatterns = [
     path('api/ping/', ping),
 
     # Aquí montas los JWT
-    path('api/auth/', include('accounts.urls')),  
+    path('api/auth/', include('accounts.urls')),
+
+    #SPECTACULAR
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 ]

@@ -3,10 +3,12 @@ from rest_framework.routers import DefaultRouter
 from accounts.views import auth, profile, password_reset, mfa, audit, users
 from accounts.views.roles import RolViewSet
 from accounts.views.users import UsuarioViewSet
+from accounts.views.audit import AuditLogListView, AuditLogExportCSV
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 router = DefaultRouter()
 router.register(r'users', users.UsuarioViewSet, basename='usuarios')
-router.register(r'roles', roles.RolViewSet)
+router.register(r'roles', RolViewSet)
 
 urlpatterns = [
     path('login/', auth.LoginView.as_view()),
@@ -19,20 +21,11 @@ urlpatterns = [
     path('2fa/enable/', mfa.EnableMFAView.as_view()),
     path('2fa/verify/', mfa.VerifyMFAView.as_view()),
     path('activity/', audit.ActivityLogView.as_view()),
-    path('audit-log/', audit.AuditLogView.as_view()),
+    # path('audit-log/', audit.AuditLogView.as_view()),
+    path('audit-log/', AuditLogListView.as_view(), name='audit-log-list'),
+    path('audit-log/export-csv/', AuditLogExportCSV.as_view(), name='audit-log-export-csv'),
     path('', include(router.urls)),
+
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 ]
-
-
-# from django.urls import path
-# from rest_framework_simplejwt.views import (
-#     TokenObtainPairView,
-#     TokenRefreshView,
-#     TokenVerifyView,
-# )
-
-# urlpatterns = [
-#     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-#     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-#     path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),
-# ]

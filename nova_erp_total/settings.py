@@ -38,8 +38,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # 'django_filters'
-    
 
     # Apps locales
     'accounts',
@@ -58,7 +56,8 @@ INSTALLED_APPS = [
     'corsheaders',
 ]
 
-INSTALLED_APPS += ['django_filters']
+INSTALLED_APPS += ['django_filters','drf_spectacular']
+
 
 AUTH_USER_MODEL = 'accounts.Usuario'
 
@@ -74,21 +73,36 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    #AUDITARIA MIDDLEWARE
+    'core.middleware.auditoria.AuditoriaMiddleware',
 ]
 
 REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,  # Páginas de 20 resultados
+    'PAGE_SIZE': 25,  # Páginas de 20 resultados
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
-# settings.py
+REST_FRAMEWORK.update({
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+})
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Nova ERP API',
+    'DESCRIPTION': 'Documentación de la API del sistema Nova ERP',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
+
+# settings.py DESPUES SE DESCOMENTARA CON LOGINS CREO
 # LOGGING = {
 #     'version': 1,
 #     'disable_existing_loggers': False,

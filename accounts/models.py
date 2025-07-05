@@ -10,6 +10,9 @@ from django.conf import settings
 
 from django.core.exceptions import ValidationError
 
+
+from django.db import models
+
 class Auditoria(models.Model):
     usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE, related_name="auditorias")
     accion = models.CharField(max_length=255)
@@ -26,7 +29,6 @@ class Auditoria(models.Model):
         return f"{self.usuario} - {self.accion} ({self.timestamp})"
 
     def clean(self):
-        """Validar antes de guardar."""
         if not self.usuario:
             raise ValidationError("El campo 'usuario' es obligatorio.")
         if not self.accion:
@@ -35,6 +37,19 @@ class Auditoria(models.Model):
             raise ValidationError("El campo 'tabla_afectada' es obligatorio.")
         if not self.registro_afectado:
             raise ValidationError("El campo 'registro_afectado' es obligatorio.")
+
+
+
+# Nota para guardar la auditoría:
+# Cuando crees una instancia, haz:
+
+# obj = Auditoria(...)
+# obj.full_clean()  # Para validar clean()
+# obj.save()
+# O implementa la validación en los formularios o serializers.
+
+
+
 
 
 
