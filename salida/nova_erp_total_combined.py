@@ -45,6 +45,7 @@ application = get_asgi_application()
 
 # --- /home/runner/workspace/nova_erp_total/urls.py ---
 """
+nova_erp_total URL Configuration
 URL configuration for nova_erp_total project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
@@ -82,6 +83,8 @@ urlpatterns = [
 
     # Aquí montas los JWT
     path('api/auth/', include('accounts.urls')),
+
+    path('auth/', include('social_django.urls', namespace='social')),
 
     #SPECTACULAR
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
@@ -131,8 +134,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # 'django_filters'
-    
+    'social_django',
 
     # Apps locales
     'accounts',
@@ -153,6 +155,7 @@ INSTALLED_APPS = [
 
 INSTALLED_APPS += ['django_filters','drf_spectacular']
 
+
 AUTH_USER_MODEL = 'accounts.Usuario'
 
 MIDDLEWARE = [
@@ -170,12 +173,13 @@ MIDDLEWARE = [
 
     #AUDITARIA MIDDLEWARE
     'core.middleware.auditoria.AuditoriaMiddleware',
+    'social_django.middleware.SocialAuthExceptionMiddleware',
 ]
 
 REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,  # Páginas de 20 resultados
+    'PAGE_SIZE': 25,  # Páginas de 20 resultados
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
@@ -184,6 +188,10 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+REST_FRAMEWORK.update({
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+})
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Nova ERP API',
@@ -241,6 +249,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'social_django.context_processors.backends',   # Agrega esta línea
+                'social_django.context_processors.login_redirect',  # Y esta
             ],
         },
     },
@@ -301,4 +311,14 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '<tu-client-id-google>'
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '<tu-client-secret-google>'
+
+SOCIAL_AUTH_MICROSOFT_KEY = '<tu-client-id-microsoft>'
+SOCIAL_AUTH_MICROSOFT_SECRET = '<tu-client-secret-microsoft>'
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://fca3faea-e64a-4f83-a448-762fa6e71df4-00-1kkfg9j97gplb.spock.replit.dev",
+    # puedes agregar más orígenes si usas otros subdominios o entornos
+]
 

@@ -1,4 +1,5 @@
 """
+nova_erp_total URL Configuration
 URL configuration for nova_erp_total project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
@@ -36,6 +37,8 @@ urlpatterns = [
 
     # Aquí montas los JWT
     path('api/auth/', include('accounts.urls')),
+
+    path('auth/', include('social_django.urls', namespace='social')),
 
     #SPECTACULAR
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

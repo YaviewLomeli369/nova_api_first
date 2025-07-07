@@ -1,0 +1,57 @@
+{
+  "info": {
+    "name": "NOVA API-FIRST",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "GET - Obtener usuarios",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://miapi.com/usuarios",
+          "protocol": "https",
+          "host": [
+            "fca3faea-e64a-4f83-a448-762fa6e71df4-00-1kkfg9j97gplb",
+            "spock",
+            "replit",
+            "dev"
+          ],
+          "path": [
+            "usuarios"
+          ]
+        }
+      }
+    },
+    {
+      "name": "POST - Crear usuario",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Juan\",\n  \"correo\": \"juan@correo.com\"\n}"
+        },
+        "url": {
+          "raw": "https://miapi.com/usuarios",
+          "protocol": "https",
+          "host": [
+            "fca3faea-e64a-4f83-a448-762fa6e71df4-00-1kkfg9j97gplb",
+            "spock",
+            "replit",
+            "dev"
+          ],
+          "path": [
+            "usuarios"
+          ]
+        }
+      }
+    }
+  ]
+}

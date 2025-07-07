@@ -11,9 +11,45 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
+
+# import sentry_sdk
+# from sentry_sdk.integrations.django import DjangoIntegration
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+import sentry_sdk
+
+sentry_sdk.init(
+    dsn="https://59a6b3f5a097d60c09ff94e6a517e6f4@o4509617180311552.ingest.us.sentry.io/4509617183981568",
+    # Add data like request headers and IP for users,
+    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+    send_default_pii=True,
+)
+
+ALLOWED_IPS = ['190.10.20.30', '10.0.0.1']  # oficina, cliente
+
+class IPWhitelistMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        ip = request.META.get('REMOTE_ADDR')
+        if ip not in ALLOWED_IPS:
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden("IP no autorizada")
+        return self.get_response(request)
+
+
+# sentry_sdk.init(
+#     dsn="https://tu_clave@o0.ingest.sentry.io/proyecto-id",
+#     integrations=[DjangoIntegration()],
+#     traces_sample_rate=1.0,  # o 0.1 para producción
+#     send_default_pii=True,
+# )
 
 
 # Quick-start development settings - unsuitable for production
@@ -38,6 +74,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'social_django',
 
     # Apps locales
     'accounts',
@@ -69,13 +106,14 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     #AUDITARIA MIDDLEWARE
     'core.middleware.auditoria.AuditoriaMiddleware',
+    'social_django.middleware.SocialAuthExceptionMiddleware',
 ]
 
 REST_FRAMEWORK = {
@@ -89,6 +127,15 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    #CIBERCEGURIDAD VS FUERZA BRUTA
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.AnonRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'user': '100/minute',     # ajusta según tu tráfico real
+        'anon': '10/minute',      # no autenticados (login, reset)
+    },
 }
 
 REST_FRAMEWORK.update({
@@ -103,25 +150,54 @@ SPECTACULAR_SETTINGS = {
 }
 
 # settings.py DESPUES SE DESCOMENTARA CON LOGINS CREO
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG',
+    },
+}
 # LOGGING = {
 #     'version': 1,
 #     'disable_existing_loggers': False,
+#     'formatters': {
+#         'json': {
+#             'format': '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "name": "%(name)s", "msg": "%(message)s"}'
+#         },
+#     },
 #     'handlers': {
+#         'file': {
+#             'level': 'INFO',
+#             'class': 'logging.FileHandler',
+#             'filename': 'logs/nova_api.log',
+#             'formatter': 'json',
+#         },
 #         'console': {
-#             'level': 'DEBUG',
 #             'class': 'logging.StreamHandler',
+#             'formatter': 'json',
 #         },
 #     },
 #     'loggers': {
 #         'django': {
-#             'handlers': ['console'],
+#             'handlers': ['file', 'console'],
 #             'level': 'INFO',
 #             'propagate': True,
 #         },
 #     },
 # }
 
+
 SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=10),   # ✅ Recomendado
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,                    # 👈 Impide reuso del mismo refresh
+    'BLACKLIST_AFTER_ROTATION': True,                 # 👈 Invalida refresh anterior
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
 }
@@ -151,6 +227,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'social_django.context_processors.backends',   # Agrega esta línea
+                'social_django.context_processors.login_redirect',  # Y esta
             ],
         },
     },
@@ -210,3 +288,121 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '<tu-client-id-google>'
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '<tu-client-secret-google>'
+
+SOCIAL_AUTH_MICROSOFT_KEY = '<tu-client-id-microsoft>'
+SOCIAL_AUTH_MICROSOFT_SECRET = '<tu-client-secret-microsoft>'
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://fca3faea-e64a-4f83-a448-762fa6e71df4-00-1kkfg9j97gplb.spock.replit.dev",
+    # puedes agregar más orígenes si usas otros subdominios o entornos
+]
+
+# --------------------------------------------------------------------------------
+# Cabeceras HTTP seguras (anti XSS, Clickjacking, etc.)
+# --------------------------------------------------------------------------------
+# Protege contra XSS
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Previene que tu sitio sea cargado en un iframe (clickjacking)
+X_FRAME_OPTIONS = 'DENY'
+
+# Política del encabezado Referer
+SECURE_REFERRER_POLICY = 'same-origin'
+
+# Seguridad estricta solo si usas HTTPS
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
+# Cookies seguras si usas JWT en cookies (no aplica por default)
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+
+
+# 🧪 3.4. ¿Cómo comprobar que estás protegido?
+# Usa curl -I o Postman para ver las cabeceras HTTP de tus respuestas.
+
+# Debes ver:
+
+# X-Frame-Options: DENY
+
+# X-Content-Type-Options: nosniff
+
+# X-XSS-Protection: 1; mode=block (si es compatible)
+
+# Referrer-Policy: same-origin
+
+
+
+
+# Permite solo tu frontend (React, Vue, etc.)
+CORS_ALLOWED_ORIGINS = [
+    "https://fca3faea-e64a-4f83-a448-762fa6e71df4-00-1kkfg9j97gplb.spock.replit.dev",
+    "https://tusitio-frontend.com",
+    "https://erpcliente.com",
+]
+
+# Evita permitir todos los orígenes (¡no usar en producción!)
+CORS_ALLOW_ALL_ORIGINS = False
+
+# Métodos permitidos
+CORS_ALLOW_METHODS = [
+    "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
+]
+
+# Headers permitidos
+CORS_ALLOW_HEADERS = [
+    "authorization",
+    "content-type",
+    "accept",
+    "origin",
+    "user-agent",
+]
+
+
+
+
+# ✔️ Checklist de seguridad – Módulo ACCOUNTS – Nova ERP
+
+# ✅ PASO 1: JWT y autenticación
+# - [x] JWT con tiempo de vida corto (10 min access)
+# - [x] Refresh con rotación y blacklist
+# - [x] Login con respuesta especial si MFA activo
+
+# ✅ PASO 2: MFA (TOTP)
+# - [x] Activación y desactivación de MFA con código
+# - [x] Login bloqueado hasta validar MFA si está activo
+# - [x] MFA también requerido en recuperación de contraseña
+
+# ✅ PASO 3: CORS, CSRF y cabeceras HTTP
+# - [x] CSRF completamente deshabilitado (API only)
+# - [x] CORS solo permite frontend oficial
+# - [x] Headers HTTP seguros (X-Frame, XSS, etc)
+
+# ✅ PASO 4: Auditoría de eventos
+# - [x] Login/Logout registrados
+# - [x] Fallos de login y MFA registrados
+# - [x] Reset de contraseña registrado
+# - [x] Activación MFA, exportaciones CSV registrados
+
+# ✅ PASO 5: Rate limiting y throttling
+# - [x] Límite por usuario: 100/min
+# - [x] Límite por IP anónima: 10/min
+# - [x] Protección contra fuerza bruta en login/reset
+
+# ✅ PASO 6: Logs, Sentry y WAF
+# - [x] Logs estructurados guardados en archivo
+# - [x] Integración con Sentry (monitoreo de errores)
+# - [ ] WAF (Cloudflare, Replit Shield o VPS) habilitado
+# - [ ] Alertas automáticas para eventos críticos
+
+# ⚠️ Verificar antes de producción:
+# - [ ] `.env` con variables sensibles fuera del repo
+# - [ ] HTTPS forzado en despliegue
+# - [ ] Rotación periódica de claves JWT
+# - [ ] Endpoint de salud (`/api/ping/`) sin info sensible

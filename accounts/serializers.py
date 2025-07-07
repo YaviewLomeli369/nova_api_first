@@ -10,11 +10,20 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        user = authenticate(username=data['username'], password=data['password'])
-        if not user:
-            raise serializers.ValidationError("Credenciales inválidas")
+        username = data.get('username')
+        password = data.get('password')
+
+        if not username or not password:
+            raise serializers.ValidationError("Usuario y contraseña son obligatorios.")
+
+        user = authenticate(username=username, password=password)
+
+        if user is None:
+            raise serializers.ValidationError("Credenciales inválidas.")
+
         if not user.activo:
-            raise serializers.ValidationError("Cuenta inactiva")
+            raise serializers.ValidationError("La cuenta está inactiva. Contacta al administrador.")
+
         data['user'] = user
         return data
 
@@ -68,16 +77,6 @@ class AuditoriaSerializer(serializers.ModelSerializer):
             'timestamp',
         ]
         
-# class AuditoriaSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Auditoria
-#         fields = ['id', 'usuario', 'accion', 'tabla_afectada', 'registro_afectado', 'timestamp']
-#         read_only_fields = ['id', 'timestamp']  # No queremos que se pueda modificar el ID ni el timestamp
-#         extra_kwargs = {
-#             'accion': {'required': True},
-#             'tabla_afectada': {'required': True},
-#             'registro_afectado': {'required': True},
-#         }
 
 
 #PRUEBA
