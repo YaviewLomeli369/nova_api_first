@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate
 from .models import Usuario, Rol, Auditoria
 from core.models import Empresa
 import pyotp
-
+# from accounts.serializers import AuditoriaSerializerMFALoginVerifyView
 # Serializer para Login
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
@@ -76,7 +76,6 @@ class AuditoriaSerializer(serializers.ModelSerializer):
             'registro_afectado',
             'timestamp',
         ]
-        
 
 
 #PRUEBA
@@ -86,15 +85,6 @@ class RolSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class UsuarioRegistroSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = Usuario
-        fields = ['empresa', 'rol', 'username', 'email', 'password']
-
-    def create(self, validated_data):
-        return Usuario.objects.create_user(**validated_data)
 
 # Serializer para crear usuario
 class UsuarioCreateSerializer(serializers.ModelSerializer):

@@ -30,17 +30,14 @@ urlpatterns = [
 
     # --- Recuperación de contraseña ---
     path('password-reset/request/', password_reset.PasswordResetRequestView.as_view(), name='password-reset-request'),  # POST - Solicitar reinicio
-    path('password-reset/confirm/', password_reset.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),  # POST - Confirmar reinicio
+    path('password-reset/confirm/', password_reset.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+    # path('password-reset/confirm/', password_reset.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),  # POST - Confirmar reinicio
 
     # --- Autenticación de dos factores (2FA) ---
     path('2fa/verify-login/', MFALoginVerifyView.as_view(), name='mfa-verify-login'),  # POST - Verificar 2FA en login
     path('2fa/enable/', MFAEnableView.as_view(), name='mfa-enable'),                   # POST - Habilitar 2FA
     path('2fa/verify/', MFAVerifyView.as_view(), name='mfa-verify'),                   # POST - Verificar código 2FA
-    path('2fa/disable/', MFADisableView.as_view(), name='mfa-disable'),       
-    # path('auth/2fa/verify-login/', MFALoginVerifyView.as_view(), name='mfa-verify-login'),  # POST - Verificar 2FA en login
-    # path('auth/2fa/enable/', MFAEnableView.as_view(), name='mfa-enable'),                   # POST - Habilitar 2FA
-    # path('auth/2fa/verify/', MFAVerifyView.as_view(), name='mfa-verify'),                   # POST - Verificar código 2FA
-    # path('auth/2fa/disable/', MFADisableView.as_view(), name='mfa-disable'),                # POST - Deshabilitar 2FA
+    path('2fa/disable/', MFADisableView.as_view(), name='mfa-disable'),                # POST - Deshabilitar 2FA
 
     # --- Actividad del usuario ---
     path('activity/', audit.ActivityLogView.as_view(), name='activity-log'),                # GET - Ver actividad
@@ -53,7 +50,7 @@ urlpatterns = [
     path('', include(router.urls)),
 
     # --- Documentación (Swagger/OpenAPI) ---
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),                       # Esquema OpenAPI
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui') # UI de Swagger
+    path('schema/', SpectacularAPIView.as_view(), name='schema'),                       # Esquema OpenAPI
+    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui') # UI de Swagger
 ]
 

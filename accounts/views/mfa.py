@@ -8,9 +8,24 @@ from rest_framework import status
 from accounts.serializers import MFAEnableSerializer, MFAVerifySerializer, MFADisableSerializer
 from rest_framework.permissions import AllowAny
 from accounts.utils.auditoria import registrar_auditoria
+from ..models import Usuario  # Asegúrate de que esta importación esté presente
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
+from datetime import timedelta
+from accounts.serializers import UsuarioSerializer
+from rest_framework_simplejwt.tokens import AccessToken
+from ..serializers import MFADisableSerializer, MFAEnableSerializer, MFAVerifySerializer, MFAVerifySerializer
+
+
+def generate_temp_token(user):
+    # Crear un AccessToken para el usuario
+    access_token = AccessToken.for_user(user)
+    # Aquí puedes agregar más datos si es necesario
+    access_token.set_exp(lifetime=timedelta(minutes=5))  # Establecer un tiempo de expiración corto
+    return str(access_token)
 
 class MFAEnableView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = MFAEnableSerializer
 
     def post(self, request):
         user = request.user
@@ -34,25 +49,66 @@ class MFAEnableView(APIView):
 
 class MFAVerifyView(APIView):
     permission_classes = [IsAuthenticated]
-
+    serializer_class = MFAVerifySerializer
+    
     def post(self, request):
         user = request.user
         serializer = MFAVerifySerializer(data=request.data)
+
+        # Verificar que los datos del serializer son válidos
         serializer.is_valid(raise_exception=True)
 
+        # Obtener el código MFA del serializer
         code = serializer.validated_data['code']
-        if not user.mfa_secret:
-            return Response({"detail": "MFA no está configurado."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Verificar si el usuario tiene configurado MFA
+        if not user.mfa_secret:
+            return Response(
+                {"detail": "MFA no está configurado para este usuario."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Generar el objeto TOTP y verificar el código
         totp = pyotp.TOTP(user.mfa_secret)
         if totp.verify(code):
+            # Si el código es válido, habilitar MFA para el usuario
             user.mfa_enabled = True
             user.save()
+
+            # Registrar la auditoría para activación exitosa
             registrar_auditoria(user, "MFA_ACTIVADO", "Usuario", "MFA activado correctamente")
+
             return Response({"detail": "MFA activado correctamente."})
         else:
+            # Registrar la auditoría para intento fallido
             registrar_auditoria(user, "MFA_FALLIDO", "Usuario", "Código MFA inválido")
-            return Response({"detail": "Código inválido."}, status=400)
+
+            return Response(
+                {"detail": "Código MFA inválido. Por favor, intente nuevamente."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+# class MFAVerifyView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request):
+#         user = request.user
+#         serializer = MFAVerifySerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+
+#         code = serializer.validated_data['code']
+#         if not user.mfa_secret:
+#             return Response({"detail": "MFA no está configurado."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         totp = pyotp.TOTP(user.mfa_secret)
+#         if totp.verify(code):
+#             user.mfa_enabled = True
+#             user.save()
+#             registrar_auditoria(user, "MFA_ACTIVADO", "Usuario", "MFA activado correctamente")
+#             return Response({"detail": "MFA activado correctamente."})
+#         else:
+#             registrar_auditoria(user, "MFA_FALLIDO", "Usuario", "Código MFA inválido")
+#             return Response({"detail": "Código inválido."}, status=400)
         # if totp.verify(code):
         #     user.mfa_enabled = True
         #     user.save()
@@ -62,6 +118,7 @@ class MFAVerifyView(APIView):
 
 class MFADisableView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = MFADisableSerializer
 
     def post(self, request):
         user = request.user
@@ -82,29 +139,48 @@ class MFADisableView(APIView):
         else:
             return Response({"detail": "Código inválido."}, status=status.HTTP_400_BAD_REQUEST)
 
+
+
+
 class MFALoginVerifyView(APIView):
     permission_classes = [AllowAny]
+    serializer_class = MFAVerifySerializer
 
     def post(self, request):
-        token = request.data.get("temp_token")
-        code = request.data.get("code")
+        token = request.data.get("temp_token")  # El token temporal que el cliente recibe
+        code = request.data.get("code")  # El código OTP del usuario
 
+        # Validar datos incompletos
         if not token or not code:
             return Response({"detail": "Datos incompletos"}, status=400)
 
         try:
+            # Decodificar el token temporal
             access_token = AccessToken(token)
             user_id = access_token['user_id']
             user = Usuario.objects.get(id=user_id)
-        except:
-            return Response({"detail": "Token inválido"}, status=400)
+        except KeyError:
+            return Response({"detail": "Token mal formado"}, status=400)
+        except Usuario.DoesNotExist:
+            return Response({"detail": "Usuario no encontrado"}, status=404)
 
+        # Verificar si el usuario tiene habilitado 2FA
+        if not user.mfa_secret:
+            return Response({"detail": "2FA no habilitado para este usuario"}, status=400)
+
+        # Verificar el código de 2FA
         totp = pyotp.TOTP(user.mfa_secret)
         if totp.verify(code):
+            # Si el código es válido, generar nuevos tokens
             refresh = RefreshToken.for_user(user)
             return Response({
                 'access': str(refresh.access_token),
                 'refresh': str(refresh),
                 'user': UsuarioSerializer(user).data
             })
+
+        # Si el código 2FA es incorrecto
         return Response({"detail": "Código MFA inválido"}, status=400)
+
+
+

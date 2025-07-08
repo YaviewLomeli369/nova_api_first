@@ -14,8 +14,16 @@ from accounts.serializers import AuditoriaSerializer
 from django.http import HttpResponse
 import csv
 
+from rest_framework.generics import GenericAPIView
+from rest_framework.response import Response
+from rest_framework import serializers
+
+class EmptySerializer(serializers.Serializer):
+    pass
+
 class AuditLogExportCSV(APIView):
     permission_classes = [IsAdminUser]
+    serializer_class = EmptySerializer
 
     def get(self, request):
         # Aplicar filtros con el mismo filtro set
@@ -41,6 +49,8 @@ class AuditLogExportCSV(APIView):
 
 class ActivityLogView(APIView):
     permission_classes = [IsAuthenticated]
+    queryset = Auditoria.objects.all()
+    serializer_class = AuditoriaSerializer
 
     def get(self, request):
         logs = Auditoria.objects.filter(usuario_id=request.user.id).order_by('-timestamp')[:50]
