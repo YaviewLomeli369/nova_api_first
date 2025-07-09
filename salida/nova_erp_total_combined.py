@@ -235,16 +235,20 @@ REST_FRAMEWORK = {
     },
 }
 
-REST_FRAMEWORK.update({
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-})
-
+# REST_FRAMEWORK.update({
+#     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+# })
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Nova ERP API',
     'DESCRIPTION': 'Documentación de la API del sistema Nova ERP',
     'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
 }
+# SPECTACULAR_SETTINGS = {
+#     'TITLE': 'Nova ERP API',
+#     'DESCRIPTION': 'Documentación de la API del sistema Nova ERP',
+#     'VERSION': '1.0.0',
+#     'SERVE_INCLUDE_SCHEMA': False,
+# }
 
 # settings.py DESPUES SE DESCOMENTARA CON LOGINS CREO
 LOGGING = {
@@ -260,34 +264,6 @@ LOGGING = {
         'level': 'DEBUG',
     },
 }
-# LOGGING = {
-#     'version': 1,
-#     'disable_existing_loggers': False,
-#     'formatters': {
-#         'json': {
-#             'format': '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "name": "%(name)s", "msg": "%(message)s"}'
-#         },
-#     },
-#     'handlers': {
-#         'file': {
-#             'level': 'INFO',
-#             'class': 'logging.FileHandler',
-#             'filename': 'logs/nova_api.log',
-#             'formatter': 'json',
-#         },
-#         'console': {
-#             'class': 'logging.StreamHandler',
-#             'formatter': 'json',
-#         },
-#     },
-#     'loggers': {
-#         'django': {
-#             'handlers': ['file', 'console'],
-#             'level': 'INFO',
-#             'propagate': True,
-#         },
-#     },
-# }
 
 SIMPLE_JWT = {
     'ALGORITHM': 'HS256',
@@ -297,17 +273,7 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
 }
-# SIMPLE_JWT = {
-#     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=10),   # ✅ Recomendado
-#     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-#     'ROTATE_REFRESH_TOKENS': True,                    # 👈 Impide reuso del mismo refresh
-#     'BLACKLIST_AFTER_ROTATION': True,                 # 👈 Invalida refresh anterior
-#     "AUTH_HEADER_TYPES": ("Bearer",),
-#     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
-#     # 'ALGORITHM': 'RS256',  # Usar RS256 en lugar de HS256
-#     'PUBLIC_KEY': Path(BASE_DIR, 'path/to/your/public_key.pem'),
-#     'PRIVATE_KEY': Path(BASE_DIR, 'path/to/your/private_key.pem'),
-# }
+
 
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.google.GoogleOAuth2',
@@ -513,4 +479,12 @@ CORS_ALLOW_HEADERS = [
 # - [ ] HTTPS forzado en despliegue
 # - [ ] Rotación periódica de claves JWT
 # - [ ] Endpoint de salud (`/api/ping/`) sin info sensible
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'yaview.lomeli@gmail.com'
+EMAIL_HOST_PASSWORD = 'ncvs lfro srke goiq'
+DEFAULT_FROM_EMAIL = 'Nova_erp_api <yaview.lomeli@gmail.com>'
 

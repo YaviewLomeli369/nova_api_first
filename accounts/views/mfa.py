@@ -14,7 +14,7 @@ from datetime import timedelta
 from accounts.serializers import UsuarioSerializer
 from rest_framework_simplejwt.tokens import AccessToken
 from ..serializers import MFADisableSerializer, MFAEnableSerializer, MFAVerifySerializer, MFAVerifySerializer
-
+from rest_framework_simplejwt.exceptions import TokenError
 
 def generate_temp_token(user):
     # Crear un AccessToken para el usuario
@@ -147,31 +147,28 @@ class MFALoginVerifyView(APIView):
     serializer_class = MFAVerifySerializer
 
     def post(self, request):
-        token = request.data.get("temp_token")  # El token temporal que el cliente recibe
-        code = request.data.get("code")  # El código OTP del usuario
+        token = request.data.get("temp_token")
+        code = request.data.get("code")
 
-        # Validar datos incompletos
         if not token or not code:
             return Response({"detail": "Datos incompletos"}, status=400)
 
         try:
-            # Decodificar el token temporal
             access_token = AccessToken(token)
             user_id = access_token['user_id']
             user = Usuario.objects.get(id=user_id)
+        except TokenError as e:
+            return Response({"detail": "Token inválido o expirado", "error": str(e)}, status=401)
         except KeyError:
             return Response({"detail": "Token mal formado"}, status=400)
         except Usuario.DoesNotExist:
             return Response({"detail": "Usuario no encontrado"}, status=404)
 
-        # Verificar si el usuario tiene habilitado 2FA
         if not user.mfa_secret:
             return Response({"detail": "2FA no habilitado para este usuario"}, status=400)
 
-        # Verificar el código de 2FA
         totp = pyotp.TOTP(user.mfa_secret)
         if totp.verify(code):
-            # Si el código es válido, generar nuevos tokens
             refresh = RefreshToken.for_user(user)
             return Response({
                 'access': str(refresh.access_token),
@@ -179,8 +176,46 @@ class MFALoginVerifyView(APIView):
                 'user': UsuarioSerializer(user).data
             })
 
-        # Si el código 2FA es incorrecto
         return Response({"detail": "Código MFA inválido"}, status=400)
+# class MFALoginVerifyView(APIView):
+#     permission_classes = [AllowAny]
+#     serializer_class = MFAVerifySerializer
+
+#     def post(self, request):
+#         token = request.data.get("temp_token")  # El token temporal que el cliente recibe
+#         code = request.data.get("code")  # El código OTP del usuario
+
+#         # Validar datos incompletos
+#         if not token or not code:
+#             return Response({"detail": "Datos incompletos"}, status=400)
+
+#         try:
+#             # Decodificar el token temporal
+#             access_token = AccessToken(token)
+#             user_id = access_token['user_id']
+#             user = Usuario.objects.get(id=user_id)
+#         except KeyError:
+#             return Response({"detail": "Token mal formado"}, status=400)
+#         except Usuario.DoesNotExist:
+#             return Response({"detail": "Usuario no encontrado"}, status=404)
+
+#         # Verificar si el usuario tiene habilitado 2FA
+#         if not user.mfa_secret:
+#             return Response({"detail": "2FA no habilitado para este usuario"}, status=400)
+
+#         # Verificar el código de 2FA
+#         totp = pyotp.TOTP(user.mfa_secret)
+#         if totp.verify(code):
+#             # Si el código es válido, generar nuevos tokens
+#             refresh = RefreshToken.for_user(user)
+#             return Response({
+#                 'access': str(refresh.access_token),
+#                 'refresh': str(refresh),
+#                 'user': UsuarioSerializer(user).data
+#             })
+
+#         # Si el código 2FA es incorrecto
+#         return Response({"detail": "Código MFA inválido"}, status=400)
 
 
 

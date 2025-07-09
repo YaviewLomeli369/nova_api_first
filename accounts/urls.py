@@ -49,8 +49,5 @@ urlpatterns = [
     # --- Vistas registradas mediante router (ViewSets) ---
     path('', include(router.urls)),
 
-    # --- Documentación (Swagger/OpenAPI) ---
-    path('schema/', SpectacularAPIView.as_view(), name='schema'),                       # Esquema OpenAPI
-    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui') # UI de Swagger
 ]
 

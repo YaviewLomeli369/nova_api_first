@@ -329,65 +329,6 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
 
 
 
-# --- /home/runner/workspace/accounts/urls.py ---
-# accounts/urls.py
-
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-
-# Importación de vistas por módulos
-from accounts.views import auth, profile, password_reset, mfa, audit, users
-from accounts.views.roles import RolViewSet
-from accounts.views.users import UsuarioViewSet
-from accounts.views.audit import AuditLogListView, AuditLogExportCSV
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from .views.mfa import MFAEnableView, MFAVerifyView, MFADisableView, MFALoginVerifyView
-
-# Rutas registradas con router para vistas basadas en ViewSet
-router = DefaultRouter()
-router.register(r'users', UsuarioViewSet, basename='usuarios')
-router.register(r'roles', RolViewSet)
-
-# Lista de URLs explícitas
-urlpatterns = [
-
-    # --- Autenticación ---
-    path('login/', auth.LoginView.as_view(), name='login'),                        # POST - Iniciar sesión
-    path('logout/', auth.LogoutView.as_view(), name='logout'),                     # POST - Cerrar sesión
-    path('register/', auth.RegisterView.as_view(), name='register'),               # POST - Registro de usuario
-    path('refresh/', auth.RefreshTokenView.as_view(), name='token-refresh'),       # POST - Refrescar token JWT
-
-    # --- Perfil de usuario ---
-    path('profile/', profile.ProfileView.as_view(), name='profile'),               # GET/PUT - Ver o editar perfil
-
-    # --- Recuperación de contraseña ---
-    path('password-reset/request/', password_reset.PasswordResetRequestView.as_view(), name='password-reset-request'),  # POST - Solicitar reinicio
-    path('password-reset/confirm/', password_reset.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),  # POST - Confirmar reinicio
-
-    # --- Autenticación de dos factores (2FA) ---
-    path('2fa/verify-login/', MFALoginVerifyView.as_view(), name='mfa-verify-login'),  # POST - Verificar 2FA en login
-    path('2fa/enable/', MFAEnableView.as_view(), name='mfa-enable'),                   # POST - Habilitar 2FA
-    path('2fa/verify/', MFAVerifyView.as_view(), name='mfa-verify'),                   # POST - Verificar código 2FA
-    path('2fa/disable/', MFADisableView.as_view(), name='mfa-disable'),                # POST - Deshabilitar 2FA
-
-    # --- Actividad del usuario ---
-    path('activity/', audit.ActivityLogView.as_view(), name='activity-log'),                # GET - Ver actividad
-
-    # --- Auditoría ---
-    path('audit-log/', AuditLogListView.as_view(), name='audit-log-list'),                  # GET - Lista de logs de auditoría
-    path('audit-log/export-csv/', AuditLogExportCSV.as_view(), name='audit-log-export-csv'),# GET - Exportar logs como CSV
-
-    # --- Vistas registradas mediante router (ViewSets) ---
-    path('', include(router.urls)),
-
-    # --- Documentación (Swagger/OpenAPI) ---
-    path('schema/', SpectacularAPIView.as_view(), name='schema'),                       # Esquema OpenAPI
-    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui') # UI de Swagger
-]
-
-
-
-
 # --- /home/runner/workspace/accounts/serializers.py ---
 from rest_framework import serializers
 from django.contrib.auth import authenticate
@@ -417,18 +358,6 @@ class LoginSerializer(serializers.Serializer):
 
         data['user'] = user
         return data
-# class LoginSerializer(serializers.Serializer):
-#     username = serializers.CharField()
-#     password = serializers.CharField(write_only=True)
-
-#     def validate(self, data):
-#         user = authenticate(username=data['username'], password=data['password'])
-#         if not user:
-#             raise serializers.ValidationError("Credenciales inválidas")
-#         if not user.activo:
-#             raise serializers.ValidationError("Cuenta inactiva")
-#         data['user'] = user
-#         return data
 
 # Serializer para Registro
 class UsuarioRegistroSerializer(serializers.ModelSerializer):
@@ -479,17 +408,6 @@ class AuditoriaSerializer(serializers.ModelSerializer):
             'registro_afectado',
             'timestamp',
         ]
-        
-# class AuditoriaSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Auditoria
-#         fields = ['id', 'usuario', 'accion', 'tabla_afectada', 'registro_afectado', 'timestamp']
-#         read_only_fields = ['id', 'timestamp']  # No queremos que se pueda modificar el ID ni el timestamp
-#         extra_kwargs = {
-#             'accion': {'required': True},
-#             'tabla_afectada': {'required': True},
-#             'registro_afectado': {'required': True},
-#         }
 
 
 #PRUEBA
@@ -499,15 +417,6 @@ class RolSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class UsuarioRegistroSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = Usuario
-        fields = ['empresa', 'rol', 'username', 'email', 'password']
-
-    def create(self, validated_data):
-        return Usuario.objects.create_user(**validated_data)
 
 # Serializer para crear usuario
 class UsuarioCreateSerializer(serializers.ModelSerializer):
@@ -539,6 +448,66 @@ class MFAVerifySerializer(serializers.Serializer):
 
 class MFADisableSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=6)
+
+
+# --- /home/runner/workspace/accounts/urls.py ---
+# accounts/urls.py
+
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+
+# Importación de vistas por módulos
+from accounts.views import auth, profile, password_reset, mfa, audit, users
+from accounts.views.roles import RolViewSet
+from accounts.views.users import UsuarioViewSet
+from accounts.views.audit import AuditLogListView, AuditLogExportCSV
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from .views.mfa import MFAEnableView, MFAVerifyView, MFADisableView, MFALoginVerifyView
+
+# Rutas registradas con router para vistas basadas en ViewSet
+router = DefaultRouter()
+router.register(r'users', UsuarioViewSet, basename='usuarios')
+router.register(r'roles', RolViewSet)
+
+# Lista de URLs explícitas
+urlpatterns = [
+
+    # --- Autenticación ---
+    path('login/', auth.LoginView.as_view(), name='login'),                        # POST - Iniciar sesión
+    path('logout/', auth.LogoutView.as_view(), name='logout'),                     # POST - Cerrar sesión
+    path('register/', auth.RegisterView.as_view(), name='register'),               # POST - Registro de usuario
+    path('refresh/', auth.RefreshTokenView.as_view(), name='token-refresh'),       # POST - Refrescar token JWT
+
+    # --- Perfil de usuario ---
+    path('profile/', profile.ProfileView.as_view(), name='profile'),               # GET/PUT - Ver o editar perfil
+
+    # --- Recuperación de contraseña ---
+    path('password-reset/request/', password_reset.PasswordResetRequestView.as_view(), name='password-reset-request'),  # POST - Solicitar reinicio
+    path('password-reset/confirm/', password_reset.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+    # path('password-reset/confirm/', password_reset.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),  # POST - Confirmar reinicio
+
+    # --- Autenticación de dos factores (2FA) ---
+    path('2fa/verify-login/', MFALoginVerifyView.as_view(), name='mfa-verify-login'),  # POST - Verificar 2FA en login
+    path('2fa/enable/', MFAEnableView.as_view(), name='mfa-enable'),                   # POST - Habilitar 2FA
+    path('2fa/verify/', MFAVerifyView.as_view(), name='mfa-verify'),                   # POST - Verificar código 2FA
+    path('2fa/disable/', MFADisableView.as_view(), name='mfa-disable'),                # POST - Deshabilitar 2FA
+
+    # --- Actividad del usuario ---
+    path('activity/', audit.ActivityLogView.as_view(), name='activity-log'),                # GET - Ver actividad
+
+    # --- Auditoría ---
+    path('audit-log/', AuditLogListView.as_view(), name='audit-log-list'),                  # GET - Lista de logs de auditoría
+    path('audit-log/export-csv/', AuditLogExportCSV.as_view(), name='audit-log-export-csv'),# GET - Exportar logs como CSV
+
+    # --- Vistas registradas mediante router (ViewSets) ---
+    path('', include(router.urls)),
+
+    # --- Documentación (Swagger/OpenAPI) ---
+    path('schema/', SpectacularAPIView.as_view(), name='schema'),                       # Esquema OpenAPI
+    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui') # UI de Swagger
+]
+
+
 
 
 # --- /home/runner/workspace/accounts/views/profile.py ---
@@ -603,132 +572,88 @@ class RolViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
 
-# --- /home/runner/workspace/accounts/views/password_reset.py ---
-# accounts/views/password_reset.py
-
-from rest_framework import serializers, status
+# --- /home/runner/workspace/accounts/views/audit.py ---
+# accounts/views/audit.py
+from rest_framework import generics, filters
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.permissions import IsAdminUser
+from rest_framework.pagination import PageNumberPagination
+from accounts.models import Auditoria
+from accounts.serializers import AuditoriaSerializer
+from accounts.filters import AuditoriaFilter
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.core.mail import send_mail
-from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_str
-from accounts.models import Usuario
-from accounts.utils.auditoria import registrar_auditoria
+from rest_framework.permissions import IsAuthenticated
+from accounts.models import Auditoria
+from accounts.serializers import AuditoriaSerializer
+from django.http import HttpResponse
+import csv
 
-# ----------------------------------------
-# 🔐 SERIALIZERS
-# ----------------------------------------
+from rest_framework.generics import GenericAPIView
+from rest_framework.response import Response
+from rest_framework import serializers
 
-class PasswordResetRequestSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+class EmptySerializer(serializers.Serializer):
+    pass
 
-class PasswordResetConfirmSerializer(serializers.Serializer):
-    uidb64 = serializers.CharField()
-    token = serializers.CharField()
-    password = serializers.CharField(min_length=8)
-    code = serializers.CharField(required=False)  # Solo si tiene MFA
+class AuditLogExportCSV(APIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = EmptySerializer
 
+    def get(self, request):
+        # Aplicar filtros con el mismo filtro set
+        filtro = AuditoriaFilter(request.GET, queryset=Auditoria.objects.all())
 
-# ----------------------------------------
-# 📤 SOLICITUD DE RECUPERACIÓN
-# ----------------------------------------
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="audit_log.csv"'
 
-class PasswordResetRequestView(APIView):
-    def post(self, request):
-        serializer = PasswordResetRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data['email']
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'Usuario', 'Acción', 'Tabla', 'Registro Afectado', 'Fecha/Hora'])
 
-        try:
-            user = Usuario.objects.get(email=email)
-            token = default_token_generator.make_token(user)
-            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+        for entry in filtro.qs.order_by('-timestamp'):
+            writer.writerow([
+                entry.id,
+                str(entry.usuario),
+                entry.accion,
+                entry.tabla_afectada,
+                entry.registro_afectado,
+                entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            ])
 
-            reset_url = f"https://tusitio.com/reset-password/?uidb64={uidb64}&token={token}"
-            send_mail(
-                subject="Recupera tu contraseña",
-                message=f"Enlace para resetear: {reset_url}",
-                from_email="no-reply@erp.com",
-                recipient_list=[email],
-                fail_silently=False,
-            )
-            return Response({"msg": "Email enviado"}, status=200)
+        return response
 
-        except Usuario.DoesNotExist:
-            return Response({"error": "Email no registrado"}, status=404)
+class ActivityLogView(APIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Auditoria.objects.all()
+    serializer_class = AuditoriaSerializer
 
+    def get(self, request):
+        logs = Auditoria.objects.filter(usuario_id=request.user.id).order_by('-timestamp')[:50]
+        data = AuditoriaSerializer(logs, many=True).data
+        return Response(data)
 
-# ----------------------------------------
-# ✅ CONFIRMACIÓN DEL CAMBIO DE CONTRASEÑA
-# ----------------------------------------
+class AuditLogView(APIView):
+    permission_classes = [IsAuthenticated]  # ¿solo admins?
 
-class PasswordResetConfirmView(APIView):
-    def post(self, request):
-        serializer = PasswordResetConfirmSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+    def get(self, request):
+        logs = Auditoria.objects.all().order_by('-timestamp')[:200]
+        data = AuditoriaSerializer(logs, many=True).data
+        return Response(data)
 
-        uidb64 = serializer.validated_data['uidb64']
-        token = serializer.validated_data['token']
-        password = serializer.validated_data['password']
-        code = serializer.validated_data.get('code')
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
-        try:
-            uid = force_str(urlsafe_base64_decode(uidb64))
-            user = Usuario.objects.get(pk=uid)
-        except (TypeError, ValueError, OverflowError, Usuario.DoesNotExist):
-            return Response({"error": "Usuario inválido"}, status=400)
-
-        if default_token_generator.check_token(user, token):
-            if user.mfa_enabled:
-                if not code:
-                    return Response({"error": "Código MFA requerido"}, status=400)
-                totp = pyotp.TOTP(user.mfa_secret)
-                if not totp.verify(code):
-                    registrar_auditoria(user, "RESET_MFA_FAIL", "Usuario", "Código MFA inválido")
-                    return Response({"error": "Código MFA inválido"}, status=400)
-
-            user.set_password(password)
-            user.save()
-            registrar_auditoria(user, "RESET_PASSWORD", "Usuario", "Contraseña restablecida con éxito")
-            return Response({"msg": "Contraseña cambiada correctamente"})
-        # if not default_token_generator.check_token(user, token):
-        #     return Response({"error": "Token inválido o expirado"}, status=400)
-
-        # if user.mfa_enabled:
-        #     if not code:
-        #         return Response({"error": "Código MFA requerido"}, status=400)
-
-        #     totp = pyotp.TOTP(user.mfa_secret)
-        #     if not totp.verify(code):
-        #         return Response({"error": "Código MFA inválido"}, status=400)
-
-        # user.set_password(password)
-        # user.save()
-        # return Response({"msg": "Contraseña cambiada correctamente"})
-
-# class PasswordResetConfirmView(APIView):
-#     def post(self, request):
-#         serializer = PasswordResetConfirmSerializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-
-#         uidb64 = serializer.validated_data['uidb64']
-#         token = serializer.validated_data['token']
-#         password = serializer.validated_data['password']
-
-#         try:
-#             uid = force_str(urlsafe_base64_decode(uidb64))
-#             user = Usuario.objects.get(pk=uid)
-#         except (TypeError, ValueError, OverflowError, Usuario.DoesNotExist):
-#             return Response({"error": "Usuario inválido"}, status=400)
-
-#         if default_token_generator.check_token(user, token):
-#             user.set_password(password)
-#             user.save()
-#             return Response({"msg": "Contraseña cambiada correctamente"})
-#         else:
-#             return Response({"error": "Token inválido o expirado"}, status=400)
-
+class AuditLogListView(generics.ListAPIView):
+    queryset = Auditoria.objects.all()
+    serializer_class = AuditoriaSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_class = AuditoriaFilter
+    ordering_fields = ['timestamp', 'usuario__username', 'accion', 'tabla_afectada']
+    ordering = ['-timestamp']
+    pagination_class = StandardResultsSetPagination
 
 
 # --- /home/runner/workspace/accounts/views/auth.py ---
@@ -746,6 +671,14 @@ from rest_framework.decorators import action, permission_classes
 
 from rest_framework.authentication import BaseAuthentication
 
+from rest_framework.generics import GenericAPIView
+from rest_framework.response import Response
+from rest_framework import serializers
+
+class EmptySerializer(serializers.Serializer):
+    pass
+
+
 class NoAuthentication(BaseAuthentication):
     def authenticate(self, request):
         return None
@@ -753,7 +686,9 @@ class NoAuthentication(BaseAuthentication):
 
 
 class LoginView(APIView):
+    serializer_class = LoginSerializer
     permission_classes = [AllowAny]
+    
     authentication_classes = [NoAuthentication]  # 👈 Esto anula la validación del token
     def post(self, request):
         print("Headers recibidos:", request.headers)
@@ -804,6 +739,7 @@ class LoginView(APIView):
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = EmptySerializer
 
     def post(self, request):
         refresh_token = request.data.get('refresh')
@@ -837,78 +773,132 @@ class RefreshTokenView(TokenRefreshView):
 
 
 
-# --- /home/runner/workspace/accounts/views/audit.py ---
-# accounts/views/audit.py
-from rest_framework import generics, filters
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.permissions import IsAdminUser
-from rest_framework.pagination import PageNumberPagination
-from accounts.models import Auditoria
-from accounts.serializers import AuditoriaSerializer
-from accounts.filters import AuditoriaFilter
+# --- /home/runner/workspace/accounts/views/password_reset.py ---
+# accounts/views/password_reset.py
+
+from rest_framework import serializers, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from accounts.models import Auditoria
-from accounts.serializers import AuditoriaSerializer
-from django.http import HttpResponse
-import csv
+from django.core.mail import send_mail
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from accounts.models import Usuario
+from accounts.utils.auditoria import registrar_auditoria
+from ..serializers import PasswordResetConfirmSerializer, PasswordResetRequestSerializer
 
-class AuditLogExportCSV(APIView):
-    permission_classes = [IsAdminUser]
+# ----------------------------------------
+# 🔐 SERIALIZERS
+# ----------------------------------------
 
-    def get(self, request):
-        # Aplicar filtros con el mismo filtro set
-        filtro = AuditoriaFilter(request.GET, queryset=Auditoria.objects.all())
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
 
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="audit_log.csv"'
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uidb64 = serializers.CharField()
+    token = serializers.CharField()
+    password = serializers.CharField(min_length=8)
+    code = serializers.CharField(required=False)  # Solo si tiene MFA
 
-        writer = csv.writer(response)
-        writer.writerow(['ID', 'Usuario', 'Acción', 'Tabla', 'Registro Afectado', 'Fecha/Hora'])
 
-        for entry in filtro.qs.order_by('-timestamp'):
-            writer.writerow([
-                entry.id,
-                str(entry.usuario),
-                entry.accion,
-                entry.tabla_afectada,
-                entry.registro_afectado,
-                entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-            ])
+# ----------------------------------------
+# 📤 SOLICITUD DE RECUPERACIÓN
+# ----------------------------------------
 
-        return response
+class PasswordResetRequestView(APIView):
+    serializer_class = PasswordResetRequestSerializer
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
 
-class ActivityLogView(APIView):
-    permission_classes = [IsAuthenticated]
+        try:
+            user = Usuario.objects.get(email=email)
+            token = default_token_generator.make_token(user)
+            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
 
-    def get(self, request):
-        logs = Auditoria.objects.filter(usuario_id=request.user.id).order_by('-timestamp')[:50]
-        data = AuditoriaSerializer(logs, many=True).data
-        return Response(data)
+            reset_url = f"https://fca3faea-e64a-4f83-a448-762fa6e71df4-00-1kkfg9j97gplb.spock.replit.dev/api/auth/password-reset/confirm/?uidb64={uidb64}&token={token}"
+            send_mail(
+                subject="Recupera tu contraseña",
+                message=f"Enlace para resetear: {reset_url}",
+                from_email="no-reply@erp.com",
+                recipient_list=[email],
+                fail_silently=False,
+            )
+            return Response({"msg": "Email enviado"}, status=200)
 
-class AuditLogView(APIView):
-    permission_classes = [IsAuthenticated]  # ¿solo admins?
+        except Usuario.DoesNotExist:
+            return Response({"error": "Email no registrado"}, status=404)
 
-    def get(self, request):
-        logs = Auditoria.objects.all().order_by('-timestamp')[:200]
-        data = AuditoriaSerializer(logs, many=True).data
-        return Response(data)
 
-class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 25
-    page_size_query_param = 'page_size'
-    max_page_size = 100
+# ----------------------------------------
+# ✅ CONFIRMACIÓN DEL CAMBIO DE CONTRASEÑA
+# ----------------------------------------
 
-class AuditLogListView(generics.ListAPIView):
-    queryset = Auditoria.objects.all()
-    serializer_class = AuditoriaSerializer
-    permission_classes = [IsAdminUser]
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_class = AuditoriaFilter
-    ordering_fields = ['timestamp', 'usuario__username', 'accion', 'tabla_afectada']
-    ordering = ['-timestamp']
-    pagination_class = StandardResultsSetPagination
+class PasswordResetConfirmView(APIView):
+    serializer_class = PasswordResetConfirmSerializer
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        uidb64 = serializer.validated_data['uidb64']
+        token = serializer.validated_data['token']
+        password = serializer.validated_data['password']
+        code = serializer.validated_data.get('code')
+
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = Usuario.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, Usuario.DoesNotExist):
+            return Response({"error": "Usuario inválido"}, status=400)
+
+        if default_token_generator.check_token(user, token):
+            if user.mfa_enabled:
+                if not code:
+                    return Response({"error": "Código MFA requerido"}, status=400)
+                totp = pyotp.TOTP(user.mfa_secret)
+                if not totp.verify(code):
+                    registrar_auditoria(user, "RESET_MFA_FAIL", "Usuario", "Código MFA inválido")
+                    return Response({"error": "Código MFA inválido"}, status=400)
+
+            user.set_password(password)
+            user.save()
+            registrar_auditoria(user, "RESET_PASSWORD", "Usuario", "Contraseña restablecida con éxito")
+            return Response({"msg": "Contraseña cambiada correctamente"})
+
+        # 🔴 El token es inválido
+        return Response({"error": "Token inválido o expirado"}, status=400)
+
+# class PasswordResetConfirmView(APIView):
+#     def post(self, request):
+#         serializer = PasswordResetConfirmSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+
+#         uidb64 = serializer.validated_data['uidb64']
+#         token = serializer.validated_data['token']
+#         password = serializer.validated_data['password']
+#         code = serializer.validated_data.get('code')
+
+#         try:
+#             uid = force_str(urlsafe_base64_decode(uidb64))
+#             user = Usuario.objects.get(pk=uid)
+#         except (TypeError, ValueError, OverflowError, Usuario.DoesNotExist):
+#             return Response({"error": "Usuario inválido"}, status=400)
+
+#         if default_token_generator.check_token(user, token):
+#             if user.mfa_enabled:
+#                 if not code:
+#                     return Response({"error": "Código MFA requerido"}, status=400)
+#                 totp = pyotp.TOTP(user.mfa_secret)
+#                 if not totp.verify(code):
+#                     registrar_auditoria(user, "RESET_MFA_FAIL", "Usuario", "Código MFA inválido")
+#                     return Response({"error": "Código MFA inválido"}, status=400)
+
+#             user.set_password(password)
+#             user.save()
+#             registrar_auditoria(user, "RESET_PASSWORD", "Usuario", "Contraseña restablecida con éxito")
+#             return Response({"msg": "Contraseña cambiada correctamente"})
+
 
 
 # --- /home/runner/workspace/accounts/views/mfa.py ---
@@ -925,9 +915,9 @@ from accounts.utils.auditoria import registrar_auditoria
 from ..models import Usuario  # Asegúrate de que esta importación esté presente
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from datetime import timedelta
-
+from accounts.serializers import UsuarioSerializer
 from rest_framework_simplejwt.tokens import AccessToken
-
+from ..serializers import MFADisableSerializer, MFAEnableSerializer, MFAVerifySerializer, MFAVerifySerializer
 
 
 def generate_temp_token(user):
@@ -939,6 +929,7 @@ def generate_temp_token(user):
 
 class MFAEnableView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = MFAEnableSerializer
 
     def post(self, request):
         user = request.user
@@ -962,7 +953,8 @@ class MFAEnableView(APIView):
 
 class MFAVerifyView(APIView):
     permission_classes = [IsAuthenticated]
-
+    serializer_class = MFAVerifySerializer
+    
     def post(self, request):
         user = request.user
         serializer = MFAVerifySerializer(data=request.data)
@@ -1030,6 +1022,7 @@ class MFAVerifyView(APIView):
 
 class MFADisableView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = MFADisableSerializer
 
     def post(self, request):
         user = request.user
@@ -1055,6 +1048,7 @@ class MFADisableView(APIView):
 
 class MFALoginVerifyView(APIView):
     permission_classes = [AllowAny]
+    serializer_class = MFAVerifySerializer
 
     def post(self, request):
         token = request.data.get("temp_token")  # El token temporal que el cliente recibe
@@ -1094,111 +1088,7 @@ class MFALoginVerifyView(APIView):
 
 
 
-# class MFALoginVerifyView(APIView):
-#     permission_classes = [AllowAny]
 
-#     def post(self, request):
-#         # Obtener datos de la solicitud
-#         token = request.data.get("temp_token")
-#         code = request.data.get("code")
-
-#         # Verificar si los datos son completos
-#         if not token or not code:
-#             return Response({"detail": "Datos incompletos"}, status=400)
-
-#         try:
-#             # Verificar el token temporal
-#             access_token = AccessToken(token)
-#             user_id = access_token['user_id']
-#             user = Usuario.objects.get(id=user_id)
-#         except KeyError:
-#             return Response({"detail": "Token mal formado"}, status=400)
-#         except Usuario.DoesNotExist:
-#             return Response({"detail": "Usuario no encontrado"}, status=404)
-
-#         # Verificar si el usuario tiene habilitado MFA
-#         if not user.mfa_secret:
-#             return Response({"detail": "2FA no habilitado para este usuario"}, status=400)
-
-#         # Verificar el código de 2FA
-#         totp = pyotp.TOTP(user.mfa_secret)
-#         if totp.verify(code):
-#             # Si el código es válido, generar nuevos tokens
-#             refresh = RefreshToken.for_user(user)
-#             return Response({
-#                 'access': str(refresh.access_token),
-#                 'refresh': str(refresh),
-#                 'user': UsuarioSerializer(user).data
-#             })
-
-#         # Si el código 2FA es incorrecto
-#         return Response({"detail": "Código MFA inválido"}, status=400)
-
-# class MFALoginVerifyView(APIView):
-#     permission_classes = [AllowAny]
-
-#     def post(self, request):
-#         # Obtener datos de la solicitud
-#         token = request.data.get("temp_token")
-#         code = request.data.get("code")
-
-#         # Validar datos incompletos
-#         if not token or not code:
-#             return Response({"detail": "Datos incompletos"}, status=400)
-
-#         try:
-#             # Verificar el token temporal
-#             access_token = AccessToken(token)
-#             user_id = access_token['user_id']
-#             user = Usuario.objects.get(id=user_id)
-#         except KeyError:
-#             return Response({"detail": "Token mal formado"}, status=400)
-#         except Usuario.DoesNotExist:
-#             raise NotFound({"detail": "Usuario no encontrado"})
-
-#         # Verificar si el usuario tiene habilitado 2FA
-#         if not user.mfa_secret:
-#             return Response({"detail": "2FA no habilitado para este usuario"}, status=400)
-
-#         # Verificar el código de 2FA
-#         totp = pyotp.TOTP(user.mfa_secret)
-#         if totp.verify(code):
-#             # Si el código es válido, generar nuevos tokens
-#             refresh = RefreshToken.for_user(user)
-#             return Response({
-#                 'access': str(refresh.access_token),
-#                 'refresh': str(refresh),
-#                 'user': UsuarioSerializer(user).data
-#             })
-
-#         # Si el código 2FA es incorrecto
-#         return Response({"detail": "Código MFA inválido"}, status=400)
-            # class MFALoginVerifyView(APIView):
-#     permission_classes = [AllowAny]
-
-#     def post(self, request):
-#         token = request.data.get("temp_token")
-#         code = request.data.get("code")
-
-#         if not token or not code:
-#             return Response({"detail": "Datos incompletos"}, status=400)
-
-#         try:
-#             access_token = AccessToken(token)
-#             user_id = access_token['user_id']
-#             user = Usuario.objects.get(id=user_id)
-#         except:
-#             return Response({"detail": "Token inválido"}, status=400)
-
-#         totp = pyotp.TOTP(user.mfa_secret)
-#         if totp.verify(code):
-#             refresh = RefreshToken.for_user(user)
-#             return Response({
-#                 'access': str(refresh.access_token),
-#                 'refresh': str(refresh),
-#                 'user': UsuarioSerializer(user).data
-#             })
-#         return Response({"detail": "Código MFA inválido"}, status=400)
 
 
 # --- /home/runner/workspace/accounts/tests/test_auth.py ---
