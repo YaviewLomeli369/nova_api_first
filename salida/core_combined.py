@@ -156,3 +156,49 @@ class AuditoriaMiddleware:
 # --- /home/runner/workspace/core/middleware/__init__.py ---
 
 
+
+# --- /home/runner/workspace/core/api/__init__.py ---
+
+
+
+# --- /home/runner/workspace/core/api/auth_viewset.py ---
+from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiResponse
+from rest_framework import viewsets
+
+@extend_schema_view(
+    post=extend_schema(
+        summary="Login",
+        description="Autenticación con JWT",
+        responses={
+            200: OpenApiResponse(description="Login exitoso"),
+            400: OpenApiResponse(description="Datos inválidos"),
+            401: OpenApiResponse(description="Credenciales incorrectas"),
+            500: OpenApiResponse(description="Error interno"),
+        },
+    ),
+    get=extend_schema(
+        summary="Ver perfil",
+        description="Datos del usuario autenticado",
+        responses={
+            200: OpenApiResponse(description="Datos del usuario"),
+            401: OpenApiResponse(description="Token inválido o no enviado"),
+        },
+    ),
+)
+class AuthViewSet(viewsets.ViewSet):
+    pass
+
+
+
+# --- /home/runner/workspace/core/api/urls.py ---
+from rest_framework.routers import DefaultRouter
+from django.urls import path, include
+from .auth_viewset import AuthViewSet
+
+router = DefaultRouter()
+router.register(r'auth', AuthViewSet, basename='auth')
+
+urlpatterns = [
+    path('', include(router.urls)),
+]
+

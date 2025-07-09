@@ -148,8 +148,12 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
             models.Index(fields=['rol', 'activo']),
         ]
 
+    # def __str__(self):
+    #     return self.username
+
     def __str__(self):
-        return self.username
+        empresa_nombre = self.empresa.nombre if self.empresa else "Sin empresa"
+        return f"{self.username} ({self.email}) - {empresa_nombre}"
 
     def get_full_name(self):
         return self.username

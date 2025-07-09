@@ -105,17 +105,6 @@ class AuditoriaFilter(django_filters.FilterSet):
 
 
 
-# --- /home/runner/workspace/accounts/schema.py ---
-# from drf_spectacular.utils import extend_schema_view, extend_schema
-
-# @extend_schema_view(
-#     post=extend_schema(summary="Login", description="Autenticación con JWT"),
-#     get=extend_schema(summary="Ver perfil", description="Datos del usuario autenticado"),
-# )
-# class AuthViewSet(viewsets.ViewSet):
-#     pass
-
-
 # --- /home/runner/workspace/accounts/admin.py ---
 # accounts/admin.py
 from django.contrib import admin
@@ -450,6 +439,35 @@ class MFADisableSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=6)
 
 
+# --- /home/runner/workspace/accounts/schema.py ---
+from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiResponse
+from rest_framework import viewsets
+
+@extend_schema_view(
+    post=extend_schema(
+        summary="Login",
+        description="Autenticación con JWT",
+        responses={
+            200: OpenApiResponse(description="Login exitoso"),
+            400: OpenApiResponse(description="Datos inválidos"),
+            401: OpenApiResponse(description="Credenciales incorrectas"),
+            500: OpenApiResponse(description="Error interno"),
+        },
+    ),
+    get=extend_schema(
+        summary="Ver perfil",
+        description="Datos del usuario autenticado",
+        responses={
+            200: OpenApiResponse(description="Datos del usuario"),
+            401: OpenApiResponse(description="Token inválido o no enviado"),
+        },
+    ),
+)
+class AuthViewSet(viewsets.ViewSet):
+    pass
+
+
+
 # --- /home/runner/workspace/accounts/urls.py ---
 # accounts/urls.py
 
@@ -502,9 +520,6 @@ urlpatterns = [
     # --- Vistas registradas mediante router (ViewSets) ---
     path('', include(router.urls)),
 
-    # --- Documentación (Swagger/OpenAPI) ---
-    path('schema/', SpectacularAPIView.as_view(), name='schema'),                       # Esquema OpenAPI
-    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui') # UI de Swagger
 ]
 
 
@@ -656,123 +671,6 @@ class AuditLogListView(generics.ListAPIView):
     pagination_class = StandardResultsSetPagination
 
 
-# --- /home/runner/workspace/accounts/views/auth.py ---
-from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status, generics
-from rest_framework.exceptions import ValidationError
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenRefreshView
-
-from accounts.serializers import LoginSerializer, UsuarioRegistroSerializer, UsuarioSerializer
-from accounts.utils.auditoria import registrar_auditoria
-from rest_framework.decorators import action, permission_classes
-
-from rest_framework.authentication import BaseAuthentication
-
-from rest_framework.generics import GenericAPIView
-from rest_framework.response import Response
-from rest_framework import serializers
-
-class EmptySerializer(serializers.Serializer):
-    pass
-
-
-class NoAuthentication(BaseAuthentication):
-    def authenticate(self, request):
-        return None
-
-
-
-class LoginView(APIView):
-    serializer_class = LoginSerializer
-    permission_classes = [AllowAny]
-    
-    authentication_classes = [NoAuthentication]  # 👈 Esto anula la validación del token
-    def post(self, request):
-        print("Headers recibidos:", request.headers)
-        serializer = LoginSerializer(data=request.data)
-        try:
-            serializer.is_valid(raise_exception=True)
-        except ValidationError:
-            username = request.data.get("username", "desconocido")
-            registrar_auditoria(
-                usuario=None,
-                username_intentado=username,
-                accion="LOGIN_FAIL",
-                tabla="Usuario",
-                registro=f"Intento fallido de login para '{username}'"
-            )
-            raise
-
-        user = serializer.validated_data['user']
-
-        if getattr(user, 'mfa_enabled', False):
-            temp_token = RefreshToken.for_user(user)
-            registrar_auditoria(
-                usuario=user,
-                accion="LOGIN_MFA",
-                tabla="Usuario",
-                registro="Login exitoso (pendiente MFA)"
-            )
-            return Response({
-                'mfa_required': True,
-                'temp_token': str(temp_token.access_token),
-                'detail': 'MFA_REQUIRED'
-            }, status=202)
-
-        refresh = RefreshToken.for_user(user)
-        registrar_auditoria(
-            usuario=user,
-            accion="LOGIN",
-            tabla="Usuario",
-            registro="Login exitoso"
-        )
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': UsuarioSerializer(user).data
-        })
-        
-
-
-class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = EmptySerializer
-
-    def post(self, request):
-        refresh_token = request.data.get('refresh')
-        if not refresh_token:
-            return Response({"detail": "Refresh token required."}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            registrar_auditoria(
-                usuario=request.user,
-                accion="LOGOUT",
-                tabla="Usuario",
-                registro="Logout exitoso"
-            )
-            return Response(status=status.HTTP_205_RESET_CONTENT)
-        except Exception as e:
-            # Podés agregar logging aquí con e para debug
-            return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class RegisterView(generics.CreateAPIView):
-    serializer_class = UsuarioRegistroSerializer
-    permission_classes = [AllowAny]
-
-
-class RefreshTokenView(TokenRefreshView):
-    permission_classes = [AllowAny]
-
-
-
-
-
 # --- /home/runner/workspace/accounts/views/password_reset.py ---
 # accounts/views/password_reset.py
 
@@ -918,7 +816,7 @@ from datetime import timedelta
 from accounts.serializers import UsuarioSerializer
 from rest_framework_simplejwt.tokens import AccessToken
 from ..serializers import MFADisableSerializer, MFAEnableSerializer, MFAVerifySerializer, MFAVerifySerializer
-
+from rest_framework_simplejwt.exceptions import TokenError
 
 def generate_temp_token(user):
     # Crear un AccessToken para el usuario
@@ -1051,31 +949,28 @@ class MFALoginVerifyView(APIView):
     serializer_class = MFAVerifySerializer
 
     def post(self, request):
-        token = request.data.get("temp_token")  # El token temporal que el cliente recibe
-        code = request.data.get("code")  # El código OTP del usuario
+        token = request.data.get("temp_token")
+        code = request.data.get("code")
 
-        # Validar datos incompletos
         if not token or not code:
             return Response({"detail": "Datos incompletos"}, status=400)
 
         try:
-            # Decodificar el token temporal
             access_token = AccessToken(token)
             user_id = access_token['user_id']
             user = Usuario.objects.get(id=user_id)
+        except TokenError as e:
+            return Response({"detail": "Token inválido o expirado", "error": str(e)}, status=401)
         except KeyError:
             return Response({"detail": "Token mal formado"}, status=400)
         except Usuario.DoesNotExist:
             return Response({"detail": "Usuario no encontrado"}, status=404)
 
-        # Verificar si el usuario tiene habilitado 2FA
         if not user.mfa_secret:
             return Response({"detail": "2FA no habilitado para este usuario"}, status=400)
 
-        # Verificar el código de 2FA
         totp = pyotp.TOTP(user.mfa_secret)
         if totp.verify(code):
-            # Si el código es válido, generar nuevos tokens
             refresh = RefreshToken.for_user(user)
             return Response({
                 'access': str(refresh.access_token),
@@ -1083,9 +978,208 @@ class MFALoginVerifyView(APIView):
                 'user': UsuarioSerializer(user).data
             })
 
-        # Si el código 2FA es incorrecto
         return Response({"detail": "Código MFA inválido"}, status=400)
+# class MFALoginVerifyView(APIView):
+#     permission_classes = [AllowAny]
+#     serializer_class = MFAVerifySerializer
 
+#     def post(self, request):
+#         token = request.data.get("temp_token")  # El token temporal que el cliente recibe
+#         code = request.data.get("code")  # El código OTP del usuario
+
+#         # Validar datos incompletos
+#         if not token or not code:
+#             return Response({"detail": "Datos incompletos"}, status=400)
+
+#         try:
+#             # Decodificar el token temporal
+#             access_token = AccessToken(token)
+#             user_id = access_token['user_id']
+#             user = Usuario.objects.get(id=user_id)
+#         except KeyError:
+#             return Response({"detail": "Token mal formado"}, status=400)
+#         except Usuario.DoesNotExist:
+#             return Response({"detail": "Usuario no encontrado"}, status=404)
+
+#         # Verificar si el usuario tiene habilitado 2FA
+#         if not user.mfa_secret:
+#             return Response({"detail": "2FA no habilitado para este usuario"}, status=400)
+
+#         # Verificar el código de 2FA
+#         totp = pyotp.TOTP(user.mfa_secret)
+#         if totp.verify(code):
+#             # Si el código es válido, generar nuevos tokens
+#             refresh = RefreshToken.for_user(user)
+#             return Response({
+#                 'access': str(refresh.access_token),
+#                 'refresh': str(refresh),
+#                 'user': UsuarioSerializer(user).data
+#             })
+
+#         # Si el código 2FA es incorrecto
+#         return Response({"detail": "Código MFA inválido"}, status=400)
+
+
+
+
+
+
+# --- /home/runner/workspace/accounts/views/auth.py ---
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status, generics
+from rest_framework.exceptions import ValidationError
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView
+
+from accounts.serializers import LoginSerializer, UsuarioRegistroSerializer, UsuarioSerializer
+from accounts.utils.auditoria import registrar_auditoria
+from rest_framework.decorators import action, permission_classes
+
+from rest_framework.authentication import BaseAuthentication
+
+from rest_framework.generics import GenericAPIView
+from rest_framework.response import Response
+from rest_framework import serializers
+from rest_framework_simplejwt.exceptions import TokenError
+
+class EmptySerializer(serializers.Serializer):
+    pass
+
+
+class NoAuthentication(BaseAuthentication):
+    def authenticate(self, request):
+        return None
+
+
+
+class LoginView(APIView):
+    serializer_class = LoginSerializer
+    permission_classes = [AllowAny]
+    
+    authentication_classes = [NoAuthentication]  # 👈 Esto anula la validación del token
+    def post(self, request):
+        print("Headers recibidos:", request.headers)
+        serializer = LoginSerializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except ValidationError:
+            username = request.data.get("username", "desconocido")
+            registrar_auditoria(
+                usuario=None,
+                username_intentado=username,
+                accion="LOGIN_FAIL",
+                tabla="Usuario",
+                registro=f"Intento fallido de login para '{username}'"
+            )
+            raise
+
+        user = serializer.validated_data['user']
+
+        if getattr(user, 'mfa_enabled', False):
+            temp_token = RefreshToken.for_user(user)
+            registrar_auditoria(
+                usuario=user,
+                accion="LOGIN_MFA",
+                tabla="Usuario",
+                registro="Login exitoso (pendiente MFA)"
+            )
+            return Response({
+                'mfa_required': True,
+                'temp_token': str(temp_token.access_token),
+                'detail': 'MFA_REQUIRED'
+            }, status=202)
+
+        refresh = RefreshToken.for_user(user)
+        registrar_auditoria(
+            usuario=user,
+            accion="LOGIN",
+            tabla="Usuario",
+            registro="Login exitoso"
+        )
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UsuarioSerializer(user).data
+        })
+        
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = EmptySerializer
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+
+        if not refresh_token:
+            return Response(
+                {"detail": "Se requiere el refresh token para cerrar sesión."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            token = RefreshToken(refresh_token)
+
+            # Intenta agregarlo a la blacklist
+            token.blacklist()
+
+            registrar_auditoria(
+                usuario=request.user,
+                accion="LOGOUT",
+                tabla="Usuario",
+                registro="Logout exitoso"
+            )
+
+            return Response(
+                {"detail": "Sesión cerrada correctamente."},
+                status=status.HTTP_205_RESET_CONTENT
+            )
+
+        except TokenError as e:
+            # Token ya fue rotado o está en blacklist
+            return Response(
+                {"detail": "El token ya fue usado o es inválido."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception as e:
+            # Otros errores inesperados
+            return Response(
+                {"detail": "Error inesperado al cerrar sesión."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+# class LogoutView(APIView):
+#     permission_classes = [IsAuthenticated]
+#     serializer_class = EmptySerializer
+
+#     def post(self, request):
+#         refresh_token = request.data.get('refresh')
+#         if not refresh_token:
+#             return Response({"detail": "Refresh token required."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             token = RefreshToken(refresh_token)
+#             token.blacklist()
+#             registrar_auditoria(
+#                 usuario=request.user,
+#                 accion="LOGOUT",
+#                 tabla="Usuario",
+#                 registro="Logout exitoso"
+#             )
+#             return Response(status=status.HTTP_205_RESET_CONTENT)
+#         except Exception as e:
+#             # Podés agregar logging aquí con e para debug
+#             return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RegisterView(generics.CreateAPIView):
+    serializer_class = UsuarioRegistroSerializer
+    permission_classes = [AllowAny]
+
+
+class RefreshTokenView(TokenRefreshView):
+    permission_classes = [AllowAny]
 
 
 

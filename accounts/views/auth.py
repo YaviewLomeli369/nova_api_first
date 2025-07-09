@@ -15,6 +15,7 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
 from rest_framework import serializers
+from rest_framework_simplejwt.exceptions import TokenError
 
 class EmptySerializer(serializers.Serializer):
     pass
@@ -76,30 +77,73 @@ class LoginView(APIView):
             'user': UsuarioSerializer(user).data
         })
         
-
-
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = EmptySerializer
 
     def post(self, request):
         refresh_token = request.data.get('refresh')
+
         if not refresh_token:
-            return Response({"detail": "Refresh token required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Se requiere el refresh token para cerrar sesión."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             token = RefreshToken(refresh_token)
+
+            # Intenta agregarlo a la blacklist
             token.blacklist()
+
             registrar_auditoria(
                 usuario=request.user,
                 accion="LOGOUT",
                 tabla="Usuario",
                 registro="Logout exitoso"
             )
-            return Response(status=status.HTTP_205_RESET_CONTENT)
+
+            return Response(
+                {"detail": "Sesión cerrada correctamente."},
+                status=status.HTTP_205_RESET_CONTENT
+            )
+
+        except TokenError as e:
+            # Token ya fue rotado o está en blacklist
+            return Response(
+                {"detail": "El token ya fue usado o es inválido."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         except Exception as e:
-            # Podés agregar logging aquí con e para debug
-            return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+            # Otros errores inesperados
+            return Response(
+                {"detail": "Error inesperado al cerrar sesión."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+# class LogoutView(APIView):
+#     permission_classes = [IsAuthenticated]
+#     serializer_class = EmptySerializer
+
+#     def post(self, request):
+#         refresh_token = request.data.get('refresh')
+#         if not refresh_token:
+#             return Response({"detail": "Refresh token required."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             token = RefreshToken(refresh_token)
+#             token.blacklist()
+#             registrar_auditoria(
+#                 usuario=request.user,
+#                 accion="LOGOUT",
+#                 tabla="Usuario",
+#                 registro="Logout exitoso"
+#             )
+#             return Response(status=status.HTTP_205_RESET_CONTENT)
+#         except Exception as e:
+#             # Podés agregar logging aquí con e para debug
+#             return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class RegisterView(generics.CreateAPIView):
