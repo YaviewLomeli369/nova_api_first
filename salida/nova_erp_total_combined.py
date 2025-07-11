@@ -43,87 +43,6 @@ application = get_asgi_application()
 
 
 
-# --- /home/runner/workspace/nova_erp_total/urls.py ---
-from django.contrib import admin
-from django.urls import path, include
-from rest_framework.permissions import AllowAny
-from django.http import JsonResponse
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-
-def ping(request):
-    return JsonResponse({"status": "ok", "message": "Nova ERP API is running"})
-
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/ping/', ping),
-
-    # Rutas globales API core
-    path('api/', include('core.api.urls')),
-
-    # Rutas específicas de apps
-    path('api/auth/', include('accounts.urls')),
-    path('auth/', include('social_django.urls', namespace='social')),
-
-    # Documentación y esquema
-    path('api/schema/', SpectacularAPIView.as_view(permission_classes=[AllowAny]), name='schema'),
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=[AllowAny]), name='swagger-ui'),
-]
-
-
-# """
-# nova_erp_total URL Configuration
-# URL configuration for nova_erp_total project.
-
-# The `urlpatterns` list routes URLs to views. For more information please see:
-#     https://docs.djangoproject.com/en/5.0/topics/http/urls/
-# Examples:
-# Function views
-#     1. Add an import:  from my_app import views
-#     2. Add a URL to urlpatterns:  path('', views.home, name='home')
-# Class-based views
-#     1. Add an import:  from other_app.views import Home
-#     2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-# Including another URLconf
-#     1. Import the include() function: from django.urls import include, path
-#     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-# """
-# from django.contrib import admin
-# from django.urls import path
-# from django.urls.conf import include
-# from rest_framework.permissions import AllowAny
-# #JSON RESPONSE
-# from django.http import JsonResponse
-
-# #SPECTACULAR
-# from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-
-# #PRUEBA JSON RESOPNSE
-# def ping(request):
-#     return JsonResponse({"status": "ok", "message": "Nova ERP API is running"})
-
-
-
-# urlpatterns = [
-#     path('admin/', admin.site.urls),
-#     path('api/ping/', ping),
-
-#     # Aquí montas los JWT
-#     path('api/auth/', include('accounts.urls')),
-
-#     path('auth/', include('social_django.urls', namespace='social')),
-
-#     # 
-#     path('api/schema/', SpectacularAPIView.as_view(permission_classes=[AllowAny]), name='schema'),
-#     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=[AllowAny]), name='swagger-ui'),
-#     # path('api/schema/', SpectacularAPIView.as_view(permission_classes=[AllowAny]), name='schema'),
-#     # path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=[AllowAny]), name='swagger-ui'),
-#     # otras rutas...
-#     # path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-#     # path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui')
-# ]
-
-
-
 # --- /home/runner/workspace/nova_erp_total/settings.py ---
 """
 Django settings for nova_erp_total project.
@@ -294,10 +213,10 @@ LOGGING = {
 
 SIMPLE_JWT = {
     'ALGORITHM': 'HS256',
-    # 'SIGNING_KEY': 'secret_key_here',
+    'SIGNING_KEY': 'secret_key_here',
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': True,
+    'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
@@ -514,4 +433,67 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'yaview.lomeli@gmail.com'
 EMAIL_HOST_PASSWORD = 'ncvs lfro srke goiq'
 DEFAULT_FROM_EMAIL = 'Nova_erp_api <yaview.lomeli@gmail.com>'
+
+
+# --- /home/runner/workspace/nova_erp_total/urls.py ---
+from django.contrib import admin
+from django.urls import path, include
+from rest_framework.permissions import AllowAny
+from django.http import JsonResponse
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
+def ping(request):
+    return JsonResponse({"status": "ok", "message": "Nova ERP API is running"})
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('api/ping/', ping),
+
+    # Rutas globales API core
+    path('api/', include('core.api.urls')),
+
+    # Rutas específicas de apps
+    path('api/auth/', include('accounts.urls')),
+    path('auth/', include('social_django.urls', namespace='social')),
+
+    # Documentación y esquema
+    path('api/schema/', SpectacularAPIView.as_view(permission_classes=[AllowAny]), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=[AllowAny]), name='swagger-ui'),
+
+    # **Importar las rutas de inventario correctamente** 
+    path('api/inventory/', include('inventario.urls')),  # Esto es lo que estaba comentado
+
+]
+
+
+# from django.contrib import admin
+# from django.urls import path, include
+# from rest_framework.permissions import AllowAny
+# from django.http import JsonResponse
+# from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
+# def ping(request):
+#     return JsonResponse({"status": "ok", "message": "Nova ERP API is running"})
+
+# urlpatterns = [
+#     path('admin/', admin.site.urls),
+#     path('api/ping/', ping),
+
+#     # Rutas globales API core
+#     path('api/', include('core.api.urls')),
+
+#     # Rutas específicas de apps
+#     path('api/auth/', include('accounts.urls')),
+#     path('auth/', include('social_django.urls', namespace='social')),
+
+#     # Documentación y esquema
+#     path('api/schema/', SpectacularAPIView.as_view(permission_classes=[AllowAny]), name='schema'),
+#     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=[AllowAny]), name='swagger-ui'),
+
+#     #Inventario
+#     # path('api/', include('inventario.urls')),
+
+#     # Después:
+#     path('api/inventory/', include('inventario.urls')),  #✅ Agrupado como debe
+# ]
 

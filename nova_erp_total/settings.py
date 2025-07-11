@@ -79,7 +79,8 @@ INSTALLED_APPS = [
     # Apps locales
     'accounts',
     'inventario',
-    'ventas',
+    # 'ventas',
+    'ventas.apps.VentasConfig',
     'compras',
     'finanzas',
     'contabilidad',
@@ -91,6 +92,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
+
 ]
 
 INSTALLED_APPS += ['django_filters','drf_spectacular']

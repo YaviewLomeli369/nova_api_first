@@ -88,16 +88,16 @@ class CuentaPorPagar(models.Model):
         ('VENCIDO', 'Vencido'),
     ]
 
+    compra = models.ForeignKey(Compra, on_delete=models.CASCADE, related_name='cuentas_por_pagar')
+    monto = models.DecimalField(max_digits=14, decimal_places=2)
+    fecha_vencimiento = models.DateField()
+    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='PENDIENTE')
+
     def clean(self):
         if self.monto <= 0:
             raise ValidationError("El monto debe ser mayor a cero.")
         if self.fecha_vencimiento < timezone.now().date():
             raise ValidationError("La fecha de vencimiento no puede estar en el pasado.")
-
-    compra = models.ForeignKey(Compra, on_delete=models.CASCADE, related_name='cuentas_por_pagar')
-    monto = models.DecimalField(max_digits=14, decimal_places=2)
-    fecha_vencimiento = models.DateField()
-    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='PENDIENTE')
 
     class Meta:
         verbose_name = "Cuenta por Pagar"

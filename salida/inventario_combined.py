@@ -145,6 +145,219 @@ class MovimientoInventario(models.Model):
 
 
 
+# --- /home/runner/workspace/inventario/serializers.py ---
+# inventario/serializers.py
+
+from rest_framework import serializers
+from .models import Categoria, Producto, Inventario, MovimientoInventario
+
+class CategoriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Categoria
+        fields = '__all__'
+        read_only_fields = ['id']
+
+
+class ProductoSerializer(serializers.ModelSerializer):
+    categoria_nombre = serializers.CharField(source='categoria.nombre', read_only=True)
+
+    class Meta:
+        model = Producto
+        fields = [
+            'id', 'empresa', 'codigo', 'nombre', 'descripcion', 'unidad_medida', 'categoria',
+            'categoria_nombre', 'precio_compra', 'precio_venta', 'stock_minimo', 'activo'
+        ]
+        read_only_fields = ['id']
+
+
+    def validate(self, data):
+        precio_venta = data.get('precio_venta', getattr(self.instance, 'precio_venta', None))
+        precio_compra = data.get('precio_compra', getattr(self.instance, 'precio_compra', None))
+
+        # Solo validar si ambos valores están disponibles
+        if precio_venta is not None and precio_compra is not None:
+            if precio_venta < precio_compra:
+                raise serializers.ValidationError("El precio de venta no puede ser menor que el de compra.")
+
+        return data
+
+    # def validate(self, data):
+    #     if data['precio_venta'] < data['precio_compra']:
+    #         raise serializers.ValidationError("El precio de venta no puede ser menor que el de compra.")
+    #     return data
+
+
+class InventarioSerializer(serializers.ModelSerializer):
+    producto_nombre = serializers.CharField(source='producto.nombre', read_only=True)
+    sucursal_nombre = serializers.CharField(source='sucursal.nombre', read_only=True)
+
+    class Meta:
+        model = Inventario
+        fields = [
+            'id', 'producto', 'producto_nombre', 'sucursal', 'sucursal_nombre',
+            'lote', 'fecha_vencimiento', 'cantidad'
+        ]
+        read_only_fields = ['id']
+
+    def validate_cantidad(self, value):
+        if value < 0:
+            raise serializers.ValidationError("La cantidad no puede ser negativa.")
+        return value
+
+
+class MovimientoInventarioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MovimientoInventario
+        fields = '__all__'
+
+    def validate(self, data):
+        producto = data['producto']
+        tipo = data['tipo']
+        cantidad = data['cantidad']
+
+        if tipo == 'salida' and producto.stock < cantidad:
+            raise serializers.ValidationError("Stock insuficiente para salida.")
+
+        return data
+
+    def create(self, validated_data):
+        producto = validated_data['producto']
+        tipo = validated_data['tipo']
+        cantidad = validated_data['cantidad']
+
+        # Actualiza el stock
+        if tipo == 'entrada':
+            producto.stock += cantidad
+        elif tipo == 'salida':
+            producto.stock -= cantidad
+        elif tipo == 'ajuste':
+            producto.stock = cantidad  # Ajuste directo
+
+        producto.save()
+        return super().create(validated_data)
+
+
+# --- /home/runner/workspace/inventario/urls.py ---
+from rest_framework.routers import DefaultRouter
+from django.urls import path
+from inventario.views.producto import ProductoViewSet
+from inventario.views.categoria import CategoriaViewSet  # Asumido: Vista para categorías
+from inventario.views.inventario import InventarioViewSet
+from inventario.views.movimiento import MovimientoInventarioViewSet
+from inventario.views.stock_alerts import StockAlertView
+from inventario.views.batches import BatchView
+
+# Crear un enrutador para el registro de vistas (ViewSets)
+router = DefaultRouter()
+router.register(r'products', ProductoViewSet, basename='product')  # Endpoint para productos
+router.register(r'categories', CategoriaViewSet, basename='category')  # Endpoint para categorías
+router.register(r'inventory', InventarioViewSet, basename='inventory')  # Endpoint para inventario
+router.register(r'movements', MovimientoInventarioViewSet, basename='inventory-movement')  # Endpoint para movimientos
+
+# Lista de URLs que combinan las rutas generadas por el router con otras rutas personalizadas
+urlpatterns = router.urls + [
+    # Rutas personalizadas adicionales (las nuevas que mencionabas)
+    path('stock-alerts/', StockAlertView.as_view(), name='stock-alerts'),  # Rutas para las alertas de stock
+    path('batches/', BatchView.as_view(), name='inventory-batches'),  # Rutas para lotes de inventario
+]
+
+
+# from rest_framework.routers import DefaultRouter
+# from django.urls import path
+# from inventario.views.producto import ProductoViewSet
+# from inventario.views.inventario import InventarioViewSet
+# from inventario.views.movimiento import MovimientoInventarioViewSet
+# from inventario.views.stock_alerts import StockAlertView
+# from inventario.views.batches import BatchView
+
+# # Crear un enrutador para el registro de vistas (ViewSets)
+# router = DefaultRouter()
+# router.register(r'products', ProductoViewSet, basename='product')
+# router.register(r'inventory', InventarioViewSet, basename='inventory')
+# router.register(r'movements', MovimientoInventarioViewSet, basename='inventory-movement')
+
+
+# # Lista de URLs que combinan las rutas generadas por el router con otras rutas personalizadas
+# urlpatterns = router.urls + [
+#     # Rutas personalizadas adicionales
+#     path('inventory/stock-alerts/', StockAlertView.as_view(), name='stock-alerts'),
+#     path('inventory/batches/', BatchView.as_view(), name='inventory-batches'),
+# ]
+# # from rest_framework.routers import DefaultRouter
+# # from django.urls import path
+# # from inventario.views.producto import ProductoViewSet
+# # from inventario.views.inventario import InventarioViewSet
+# # from inventario.views.movimiento import MovimientoInventarioViewSet
+# # from inventario.views.stock_alerts import StockAlertView
+# # from inventario.views.batches import BatchView
+
+# # # Crear un enrutador para el registro de vistas (ViewSets)
+# # router = DefaultRouter()
+# # router.register(r'products', ProductoViewSet, basename='product')
+# # router.register(r'inventory', InventarioViewSet, basename='inventory')
+# # router.register(r'inventory/movements', MovimientoInventarioViewSet, basename='inventory-movement')
+
+
+# # # Lista de URLs que combinan las rutas generadas por el router con otras rutas personalizadas
+# # urlpatterns = router.urls + [
+# #     # Rutas personalizadas adicionales
+# #     path('inventory/stock-alerts/', StockAlertView.as_view(), name='stock-alerts'),
+# #     path('inventory/batches/', BatchView.as_view(), name='inventory-batches'),
+# # ]
+# # # inventario/urls.py
+
+# # from rest_framework.routers import DefaultRouter
+# # from django.urls import path
+# # from inventario.views.producto import ProductoViewSet
+# # from inventario.views.inventario import InventarioViewSet
+# # from inventario.views.movimiento import MovimientoInventarioViewSet
+# # from inventario.views.stock_alerts import StockAlertView
+# # from inventario.views.batches import BatchView
+
+# # router = DefaultRouter()
+# # router.register(r'products', ProductoViewSet, basename='product')
+# # router.register(r'inventory', InventarioViewSet, basename='inventory')
+# # router.register(r'inventory/movements', MovimientoInventarioViewSet, basename='inventory-movement')
+
+# # urlpatterns = router.urls + [
+# #     path('inventory/stock-alerts/', StockAlertView.as_view(), name='stock-alerts'),
+# #     path('inventory/batches/', BatchView.as_view(), name='inventory-batches'),
+# # ]
+
+
+# # inventario
+
+# # 🔹 4. /movimientos/ → MovimientoInventarioViewSet
+# # Método	Ruta	Acción
+# # GET	/api/inventario/movimientos/	Listar movimientos
+# # POST	/api/inventario/movimientos/	Crear nuevo movimiento
+# # GET	/api/inventario/movimientos/{id}/	Ver detalle de movimiento
+# # PUT	/api/inventario/movimientos/{id}/	❌ No recomendado (stock ya movido)
+# # PATCH	/api/inventario/movimientos/{id}/	❌ Idem anterior
+# # DELETE	/api/inventario/movimientos/{id}/	❌ No recomendado (auditoría)
+
+# # # inventario/urls.py
+
+# # from rest_framework.routers import DefaultRouter
+# # from django.urls import path, include
+
+# # from inventario.views.categoria import CategoriaViewSet
+# # from inventario.views.producto import ProductoViewSet
+# # from inventario.views.inventario import InventarioViewSet
+# # from inventario.views.movimiento import MovimientoInventarioViewSet
+
+# # router = DefaultRouter()
+# # router.register(r'categorias', CategoriaViewSet, basename='categoria')
+# # router.register(r'productos', ProductoViewSet, basename='producto')
+# # router.register(r'inventarios', InventarioViewSet, basename='inventario')
+# # router.register(r'movimientos', MovimientoInventarioViewSet, basename='movimiento-inventario')
+
+# # urlpatterns = [
+# #     path('', include(router.urls)),
+# # ]
+
+
+
 # --- /home/runner/workspace/inventario/migrations/__init__.py ---
 
 
@@ -267,5 +480,122 @@ class Migration(migrations.Migration):
             index=models.Index(fields=['fecha_vencimiento'], name='inventario__fecha_v_7b1ec0_idx'),
         ),
     ]
+
+
+
+# --- /home/runner/workspace/inventario/views/categoria.py ---
+from rest_framework import viewsets
+from inventario.models import Categoria
+from inventario.serializers import CategoriaSerializer
+from rest_framework.permissions import IsAuthenticated
+
+class CategoriaViewSet(viewsets.ModelViewSet):
+    queryset = Categoria.objects.all()
+    serializer_class = CategoriaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return self.queryset.filter(empresa=self.request.user.empresa)
+
+
+
+# --- /home/runner/workspace/inventario/views/producto.py ---
+from rest_framework import viewsets
+from inventario.models import Producto
+from inventario.serializers import ProductoSerializer
+from rest_framework.permissions import IsAuthenticated
+
+class ProductoViewSet(viewsets.ModelViewSet):
+    queryset = Producto.objects.all()
+    serializer_class = ProductoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return self.queryset.filter(empresa=self.request.user.empresa)
+
+
+
+# --- /home/runner/workspace/inventario/views/inventario.py ---
+from rest_framework import viewsets
+from inventario.models import Inventario
+from inventario.serializers import InventarioSerializer
+from rest_framework.permissions import IsAuthenticated
+
+class InventarioViewSet(viewsets.ModelViewSet):
+    queryset = Inventario.objects.select_related('producto', 'sucursal')
+    serializer_class = InventarioSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return self.queryset.filter(producto__empresa=self.request.user.empresa)
+
+
+
+# --- /home/runner/workspace/inventario/views/__init__.py ---
+
+
+
+# --- /home/runner/workspace/inventario/views/stock_alerts.py ---
+# inventario/views/stock_alerts.py
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from inventario.models import Producto
+from inventario.serializers import ProductoSerializer
+from django.db.models import F
+
+class StockAlertView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        empresa = request.user.empresa
+        productos_alerta = Producto.objects.filter(
+            empresa=empresa,
+            activo=True,
+            inventarios__cantidad__lt=F('stock_minimo')
+        ).distinct()
+
+        serializer = ProductoSerializer(productos_alerta, many=True)
+        return Response(serializer.data)
+
+
+
+# --- /home/runner/workspace/inventario/views/batches.py ---
+# inventario/views/batches.py
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from inventario.models import Inventario
+from inventario.serializers import InventarioSerializer
+from django.utils import timezone
+
+class BatchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        empresa = request.user.empresa
+        hoy = timezone.now().date()
+        inventarios = Inventario.objects.filter(
+            producto__empresa=empresa,
+            fecha_vencimiento__isnull=False
+        ).order_by('fecha_vencimiento')
+
+        serializer = InventarioSerializer(inventarios, many=True)
+        return Response(serializer.data)
+
+
+
+# --- /home/runner/workspace/inventario/views/movimiento.py ---
+# inventario/views/movimiento.py
+
+from rest_framework import viewsets
+from inventario.models import MovimientoInventario
+from inventario.serializers import MovimientoInventarioSerializer
+
+class MovimientoInventarioViewSet(viewsets.ModelViewSet):  # ✅ debe ser ModelViewSet
+    queryset = MovimientoInventario.objects.all()
+    serializer_class = MovimientoInventarioSerializer
 
 

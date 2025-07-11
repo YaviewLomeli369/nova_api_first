@@ -72,10 +72,6 @@ class Nomina(models.Model):
         ('CANCELADA', 'Cancelada'),
     ]
 
-    def clean(self):
-        if self.salario < 0:
-            raise ValidationError("El salario no puede ser negativo.")
-
     empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='nominas')
     periodo = models.CharField(max_length=50, help_text="Ejemplo: 'Julio 2025'")
     total = models.DecimalField(max_digits=14, decimal_places=2)
