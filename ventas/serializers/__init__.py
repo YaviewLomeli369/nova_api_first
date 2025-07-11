@@ -1,0 +1,3 @@
+from .cliente_serializer import ClienteSerializer
+from .detalle_venta_serializer import DetalleVentaSerializer
+from .venta_serializer import VentaSerializer
