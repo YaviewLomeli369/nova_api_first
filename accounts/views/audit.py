@@ -1,22 +1,45 @@
-# accounts/views/audit.py
-from rest_framework import generics, filters
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.permissions import IsAdminUser
-from rest_framework.pagination import PageNumberPagination
-from accounts.models import Auditoria
-from accounts.serializers import AuditoriaSerializer
-from accounts.filters import AuditoriaFilter
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from accounts.models import Auditoria
-from accounts.serializers import AuditoriaSerializer
-from django.http import HttpResponse
+# Standard library
 import csv
 
-from rest_framework.generics import GenericAPIView
+# Django
+from django.http import HttpResponse
+
+# Django REST Framework
+from rest_framework import generics, filters
+from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
+
+# Filtros de terceros
+from django_filters.rest_framework import DjangoFilterBackend
+
+# Local apps
+from accounts.models import Auditoria
+from accounts.serializers.auditoria_serializers import AuditoriaSerializer
+from accounts.filters import AuditoriaFilter
+
 from rest_framework import serializers
+
+# # accounts/views/audit.py
+# from rest_framework import generics, filters
+# from django_filters.rest_framework import DjangoFilterBackend
+# from rest_framework.permissions import IsAdminUser
+# from rest_framework.pagination import PageNumberPagination
+# from accounts.models import Auditoria
+# from accounts.serializers import AuditoriaSerializer
+# from accounts.filters import AuditoriaFilter
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from rest_framework.permissions import IsAuthenticated
+# from accounts.models import Auditoria
+# from accounts.serializers import AuditoriaSerializer
+# from django.http import HttpResponse
+# import csv
+
+# from rest_framework.generics import GenericAPIView
+# from rest_framework.response import Response
+# from rest_framework import serializers
 
 class EmptySerializer(serializers.Serializer):
     pass

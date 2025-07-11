@@ -1,21 +1,43 @@
+# Django REST Framework
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status, generics
 from rest_framework.exceptions import ValidationError
+from rest_framework.authentication import BaseAuthentication
+from rest_framework.generics import GenericAPIView
+
+# JWT
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
-
-from accounts.serializers import LoginSerializer, UsuarioRegistroSerializer, UsuarioSerializer
-from accounts.utils.auditoria import registrar_auditoria
-from rest_framework.decorators import action, permission_classes
-
-from rest_framework.authentication import BaseAuthentication
-
-from rest_framework.generics import GenericAPIView
-from rest_framework.response import Response
-from rest_framework import serializers
 from rest_framework_simplejwt.exceptions import TokenError
+
+# Serializers (ya divididos en archivos separados)
+from accounts.serializers.auth_serializers import LoginSerializer
+from accounts.serializers.user_serializers import UsuarioRegistroSerializer, UsuarioSerializer
+
+# Utilidades
+from accounts.utils.auditoria import registrar_auditoria
+from rest_framework import serializers
+
+# from rest_framework.views import APIView
+# from rest_framework.permissions import AllowAny, IsAuthenticated
+# from rest_framework.response import Response
+# from rest_framework import status, generics
+# from rest_framework.exceptions import ValidationError
+# from rest_framework_simplejwt.tokens import RefreshToken
+# from rest_framework_simplejwt.views import TokenRefreshView
+
+# from accounts.serializers import LoginSerializer, UsuarioRegistroSerializer, UsuarioSerializer
+# from accounts.utils.auditoria import registrar_auditoria
+# from rest_framework.decorators import action, permission_classes
+
+# from rest_framework.authentication import BaseAuthentication
+
+# from rest_framework.generics import GenericAPIView
+# from rest_framework.response import Response
+# from rest_framework import serializers
+# from rest_framework_simplejwt.exceptions import TokenError
 
 class EmptySerializer(serializers.Serializer):
     pass

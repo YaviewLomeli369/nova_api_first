@@ -1,6 +1,14 @@
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
-from accounts.serializers import UsuarioSerializer
+from accounts.serializers.user_serializers import UsuarioSerializer
+
+
+from rest_framework import serializers
+
+
+# from rest_framework import generics
+# from rest_framework.permissions import IsAuthenticated
+# from accounts.serializers import UsuarioSerializer
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UsuarioSerializer

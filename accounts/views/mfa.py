@@ -1,20 +1,46 @@
-# accounts/views/mfa.py
-
+from rest_framework.permissions import AllowAny
+# Standard Library
+from datetime import timedelta
 import pyotp
+
+# Django REST Framework
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from accounts.serializers import MFAEnableSerializer, MFAVerifySerializer, MFADisableSerializer
-from rest_framework.permissions import AllowAny
-from accounts.utils.auditoria import registrar_auditoria
-from ..models import Usuario  # Asegúrate de que esta importación esté presente
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
-from datetime import timedelta
-from accounts.serializers import UsuarioSerializer
-from rest_framework_simplejwt.tokens import AccessToken
-from ..serializers import MFADisableSerializer, MFAEnableSerializer, MFAVerifySerializer, MFAVerifySerializer
 from rest_framework_simplejwt.exceptions import TokenError
+
+# App local
+from accounts.models import Usuario
+from accounts.serializers.mfa_serializers import (
+    MFAEnableSerializer,
+    MFAVerifySerializer,
+    MFADisableSerializer
+)
+from accounts.serializers.user_serializers import UsuarioSerializer
+from accounts.utils.auditoria import registrar_auditoria
+
+from rest_framework import serializers
+
+
+# # accounts/views/mfa.py
+
+# import pyotp
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from rest_framework.permissions import IsAuthenticated
+# from rest_framework import status
+# from accounts.serializers import MFAEnableSerializer, MFAVerifySerializer, MFADisableSerializer
+# from rest_framework.permissions import AllowAny
+# from accounts.utils.auditoria import registrar_auditoria
+# from ..models import Usuario  # Asegúrate de que esta importación esté presente
+# from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
+# from datetime import timedelta
+# from accounts.serializers import UsuarioSerializer
+# from rest_framework_simplejwt.tokens import AccessToken
+# from ..serializers import MFADisableSerializer, MFAEnableSerializer, MFAVerifySerializer, MFAVerifySerializer
+# from rest_framework_simplejwt.exceptions import TokenError
 
 def generate_temp_token(user):
     # Crear un AccessToken para el usuario

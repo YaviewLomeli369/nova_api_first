@@ -1,9 +1,15 @@
-# accounts/views/users.py
-
 from rest_framework import viewsets, permissions, filters
 from accounts.models import Usuario
-from accounts.serializers import UsuarioCreateSerializer, UsuarioDetailSerializer
+from accounts.serializers.user_serializers import UsuarioCreateSerializer, UsuarioDetailSerializer
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import serializers
+
+# # accounts/views/users.py
+
+# from rest_framework import viewsets, permissions, filters
+# from accounts.models import Usuario
+# from accounts.serializers import UsuarioCreateSerializer, UsuarioDetailSerializer
+# from django_filters.rest_framework import DjangoFilterBackend
 
 class UsuarioViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
