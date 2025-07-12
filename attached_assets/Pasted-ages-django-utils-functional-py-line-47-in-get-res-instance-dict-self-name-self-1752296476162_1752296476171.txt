@@ -1,0 +1,32 @@
+ages/django/utils/functional.py", line 47, in __get__
+    res = instance.__dict__[self.name] = self.func(instance)
+  File "/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/urls/resolvers.py", line 711, in urlconf_module
+    return import_module(self.urlconf_name)
+  File "/nix/store/qlb1pg370bb647nj4dhc81y2jszvciz7-python3-3.10.16/lib/python3.10/importlib/__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/home/runner/workspace/nova_erp_total/urls.py", line 18, in <module>
+    path('api/auth/', include('accounts.urls')),
+  File "/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/urls/conf.py", line 39, in include
+    urlconf_module = import_module(urlconf_module)
+  File "/nix/store/qlb1pg370bb647nj4dhc81y2jszvciz7-python3-3.10.16/lib/python3.10/importlib/__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+https://o4509617180311552.ingest.us.sentry.io:443 "POST /api/4509617183981568/envelope/ HTTP/1.1" 200 0
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/home/runner/workspace/accounts/urls.py", line 7, in <module>
+    from accounts.views import auth, profile, password_reset, mfa, audit, users
+  File "/home/runner/workspace/accounts/views/__init__.py", line 7, in <module>
+    from .roles import RolViewSet
+  File "/home/runner/workspace/accounts/views/roles.py", line 3, in <module>
+    from accounts.serializers.rol_serializers import RolSerializer
+ImportError: cannot import name 'RolSerializer' from 'accounts.serializers.rol_serializers' (/home/runner/workspace/accounts/serializers/rol_serializers.py)

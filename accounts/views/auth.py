@@ -19,25 +19,8 @@ from accounts.serializers.user_serializers import UsuarioRegistroSerializer, Usu
 # Utilidades
 from accounts.utils.auditoria import registrar_auditoria
 from rest_framework import serializers
+from rest_framework.authentication import BasicAuthentication
 
-# from rest_framework.views import APIView
-# from rest_framework.permissions import AllowAny, IsAuthenticated
-# from rest_framework.response import Response
-# from rest_framework import status, generics
-# from rest_framework.exceptions import ValidationError
-# from rest_framework_simplejwt.tokens import RefreshToken
-# from rest_framework_simplejwt.views import TokenRefreshView
-
-# from accounts.serializers import LoginSerializer, UsuarioRegistroSerializer, UsuarioSerializer
-# from accounts.utils.auditoria import registrar_auditoria
-# from rest_framework.decorators import action, permission_classes
-
-# from rest_framework.authentication import BaseAuthentication
-
-# from rest_framework.generics import GenericAPIView
-# from rest_framework.response import Response
-# from rest_framework import serializers
-# from rest_framework_simplejwt.exceptions import TokenError
 
 class EmptySerializer(serializers.Serializer):
     pass
@@ -144,33 +127,11 @@ class LogoutView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-# class LogoutView(APIView):
-#     permission_classes = [IsAuthenticated]
-#     serializer_class = EmptySerializer
-
-#     def post(self, request):
-#         refresh_token = request.data.get('refresh')
-#         if not refresh_token:
-#             return Response({"detail": "Refresh token required."}, status=status.HTTP_400_BAD_REQUEST)
-
-#         try:
-#             token = RefreshToken(refresh_token)
-#             token.blacklist()
-#             registrar_auditoria(
-#                 usuario=request.user,
-#                 accion="LOGOUT",
-#                 tabla="Usuario",
-#                 registro="Logout exitoso"
-#             )
-#             return Response(status=status.HTTP_205_RESET_CONTENT)
-#         except Exception as e:
-#             # Podés agregar logging aquí con e para debug
-#             return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
-
 
 class RegisterView(generics.CreateAPIView):
     serializer_class = UsuarioRegistroSerializer
     permission_classes = [AllowAny]
+    authentication_classes = [BasicAuthentication]  # 👈 Esto ignora JWT y permite registro sin token
 
 
 class RefreshTokenView(TokenRefreshView):

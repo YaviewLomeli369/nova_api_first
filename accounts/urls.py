@@ -49,5 +49,7 @@ urlpatterns = [
     # --- Vistas registradas mediante router (ViewSets) ---
     path('', include(router.urls)),
 
+    path('api/', include(router.urls)),
+
 ]
 

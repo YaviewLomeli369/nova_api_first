@@ -75,9 +75,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'social_django',
+    'accounts.apps.AccountsConfig',
 
     # Apps locales
-    'accounts',
+    # 'accounts',
     'inventario',
     # 'ventas',
     'ventas.apps.VentasConfig',

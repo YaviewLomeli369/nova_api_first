@@ -17,6 +17,8 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from django.contrib.auth.models import Group
+
 class Auditoria(models.Model):
     usuario = models.ForeignKey(
         'Usuario', 
@@ -58,6 +60,7 @@ class Auditoria(models.Model):
 class Rol(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
     descripcion = models.TextField(blank=True, null=True)
+    grupo = models.OneToOneField(Group, on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         verbose_name = "Rol"

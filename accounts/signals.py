@@ -7,6 +7,8 @@ from django.contrib.contenttypes.models import ContentType
 from accounts.models import Auditoria, Usuario
 from django.conf import settings
 import threading
+from django.contrib.auth.models import Group
+from accounts.models import Usuario
 
 # Hilo-local para almacenar temporalmente el usuario
 _local = threading.local()
@@ -43,3 +45,11 @@ def auditoria_crear_modificar(sender, instance, created, **kwargs):
 def auditoria_eliminar(sender, instance, **kwargs):
     if sender._meta.app_label in ['accounts', 'ventas', 'compras', 'inventario']:
         registrar_auditoria(instance, "ELIMINADO")
+
+@receiver(post_save, sender=Usuario)
+def sync_user_group(sender, instance, **kwargs):
+    if instance.rol:
+        group, created = Group.objects.get_or_create(name=instance.rol.nombre)
+        instance.groups.set([group])
+    else:
+        instance.groups.clear()
