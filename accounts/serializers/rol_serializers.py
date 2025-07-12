@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from ..models import Rol
+from accounts.models import Rol  # Importa el modelo correctamente
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:

@@ -1,10 +1,10 @@
 from rest_framework import viewsets, permissions
 from accounts.models import Rol
-from accounts.serializers.rol_serializers import RolSerializer
+from accounts.serializers.rol_serializers import RoleSerializer
 
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Rol.objects.all()
-    serializer_class = RolSerializer
+    serializer_class = RoleSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     # Puedes agregar filtros o permisos especiales aquí
