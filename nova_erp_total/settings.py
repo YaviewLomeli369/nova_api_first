@@ -76,7 +76,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'social_django',
     'accounts.apps.AccountsConfig',
-
+    'django_extensions',
     # Apps locales
     # 'accounts',
     'inventario',

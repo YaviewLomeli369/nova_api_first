@@ -5,19 +5,27 @@ from rest_framework.routers import DefaultRouter
 
 # Importación de vistas por módulos
 from accounts.views import auth, profile, password_reset, mfa, audit, users
-from accounts.views.roles import RolViewSet
+from accounts.views.roles import RoleViewSet 
 from accounts.views.users import UsuarioViewSet
 from accounts.views.audit import AuditLogListView, AuditLogExportCSV
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from .views.mfa import MFAEnableView, MFAVerifyView, MFADisableView, MFALoginVerifyView
 
+from accounts.views.groups import GroupViewSet
+from accounts.views.permissions import PermissionViewSet
+
+
+
 # Rutas registradas con router para vistas basadas en ViewSet
 router = DefaultRouter()
 router.register(r'users', UsuarioViewSet, basename='usuarios')
-router.register(r'roles', RolViewSet)
+router.register(r'roles', RoleViewSet )
+router.register(r'groups', GroupViewSet, basename='group')
+router.register(r'permissions', PermissionViewSet, basename='permission')
 
 # Lista de URLs explícitas
 urlpatterns = [
+                           
 
     # --- Autenticación ---
     path('login/', auth.LoginView.as_view(), name='login'),                        # POST - Iniciar sesión
@@ -46,10 +54,9 @@ urlpatterns = [
     path('audit-log/', AuditLogListView.as_view(), name='audit-log-list'),                  # GET - Lista de logs de auditoría
     path('audit-log/export-csv/', AuditLogExportCSV.as_view(), name='audit-log-export-csv'),# GET - Exportar logs como CSV
 
-    # --- Vistas registradas mediante router (ViewSets) ---
-    path('', include(router.urls)),
 
-    path('api/', include(router.urls)),
+    path('', include(router.urls)),
 
 ]
 
+# urlpatterns += router.urls

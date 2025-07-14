@@ -1,27 +1,19 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets
 from accounts.models import Rol
 from accounts.serializers.rol_serializers import RoleSerializer
+from accounts.permissions import IsSuperAdmin  # Importa tu permiso personalizado
 
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Rol.objects.all()
     serializer_class = RoleSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    # Puedes agregar filtros o permisos especiales aquí
+    permission_classes = [IsSuperAdmin]
 
 # from rest_framework import viewsets
-# from rest_framework.permissions import IsAuthenticated
 # from accounts.models import Rol
-# from accounts.serializers.rol_serializers import RolSerializer
+# from accounts.serializers.rol_serializers import RoleSerializer
+# from accounts.permissions import IsSuperAdmin  # Asegúrate de importar desde donde lo tengas definido
 
-# from rest_framework import serializers
-
-# # from rest_framework import viewsets
-# # from rest_framework.permissions import IsAuthenticated
-# # from accounts.models import Rol
-# # from accounts.serializers import RolSerializer
-
-# class RolViewSet(viewsets.ModelViewSet):
+# class RoleViewSet(viewsets.ModelViewSet):
 #     queryset = Rol.objects.all()
-#     serializer_class = RolSerializer
-#     permission_classes = [IsAuthenticated]
+#     serializer_class = RoleSerializer
+#     permission_classes = [IsSuperAdmin]
