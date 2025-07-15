@@ -1,0 +1,45 @@
+ValueError at /api/sales/orders/
+'Venta' instance needs to have a primary key value before this relationship can be used.
+Request Method:	POST
+Request URL:	http://fca3faea-e64a-4f83-a448-762fa6e71df4-00-1kkfg9j97gplb.spock.replit.dev/api/sales/orders/
+Django Version:	5.2.4
+Exception Type:	ValueError
+Exception Value:	
+'Venta' instance needs to have a primary key value before this relationship can be used.
+Exception Location:	/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/db/models/fields/related_descriptors.py, line 760, in get_queryset
+Raised during:	ventas.views.ventas.VentaViewSet
+Python Executable:	/home/runner/workspace/.pythonlibs/bin/python
+Python Version:	3.10.16
+Python Path:	
+['/home/runner/workspace',
+ '/nix/store/lc7qv2ldzrs1aq3hbyzmbgvn0h2w26pl-sitecustomize/lib/python/site-packages',
+ '/nix/store/izqbpf8fkd2741sqwdca4a9kfy3ss2dx-python3.10-pip-24.0/lib/python3.10/site-packages',
+ '/nix/store/qlb1pg370bb647nj4dhc81y2jszvciz7-python3-3.10.16/lib/python310.zip',
+ '/nix/store/qlb1pg370bb647nj4dhc81y2jszvciz7-python3-3.10.16/lib/python3.10',
+ '/nix/store/qlb1pg370bb647nj4dhc81y2jszvciz7-python3-3.10.16/lib/python3.10/lib-dynload',
+ '/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages',
+ '/nix/store/qlb1pg370bb647nj4dhc81y2jszvciz7-python3-3.10.16/lib/python3.10/site-packages',
+ '/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages',
+ '/nix/store/9ym4wlfl13w339g1jqpgp9llwrqml3jx-python3.10-setuptools-75.1.1/lib/python3.10/site-packages']
+Server time:	Tue, 15 Jul 2025 22:14:03 +0000
+Traceback Switch to copy-and-paste view
+/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/core/handlers/exception.py, line 55, in inner
+        return inner
+    else:
+        @wraps(get_response)
+        def inner(request):
+            try:
+                response = get_response(request) …
+            except Exception as exc:
+                response = response_for_exception(request, exc)
+            return response
+        return inner
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/core/handlers/base.py, line 197, in _get_response
+        if response is None:
+            wrapped_callback = self.make_view_atomic(callback)
+            # If it is an asynchronous view, run it in a subthread.
+            if iscoroutinefunction(wrapped_callback):
+                wrapped_callback = async_to_sync(wrapped_callback)
+            try:
+                response = wrapped_callback(request, *callback_args, **callback_kwargs) 

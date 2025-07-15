@@ -40,6 +40,15 @@ class Venta(models.Model):
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='PENDIENTE')
     usuario = models.ForeignKey('accounts.Usuario', on_delete=models.PROTECT, related_name='ventas')
 
+    def calcular_total(self):
+        # Sumar los subtotales de los detalles de la venta
+        self.total = sum(detalle.precio_unitario * detalle.cantidad for detalle in self.detalles.all())
+
+    def save(self, *args, **kwargs):
+        # Asegurarse de que el total se calcule antes de guardar
+        self.calcular_total()
+        super().save(*args, **kwargs)
+
     class Meta:
         verbose_name = "Venta"
         verbose_name_plural = "Ventas"

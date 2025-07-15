@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from ventas.models import DetalleVenta
+from inventario.models import Inventario
 
 class DetalleVentaSerializer(serializers.ModelSerializer):
     producto_nombre = serializers.CharField(source='producto.nombre', read_only=True)
@@ -31,9 +32,16 @@ class DetalleVentaSerializer(serializers.ModelSerializer):
         if producto is None:
             raise serializers.ValidationError("El producto es obligatorio.")
 
-        if producto.stock < cantidad:
+        # Obtener todos los inventarios asociados al producto
+        inventarios = Inventario.objects.filter(producto=producto)
+
+        # Sumar la cantidad disponible de los inventarios
+        stock_disponible = sum(inventario.cantidad for inventario in inventarios)
+
+        # Verificar si hay suficiente stock
+        if stock_disponible < cantidad:
             raise serializers.ValidationError(
-                f"No hay suficiente stock para el producto '{producto.nombre}'. Stock disponible: {producto.stock}"
+                f"No hay suficiente stock para el producto '{producto.nombre}'. Stock disponible: {stock_disponible}"
             )
 
         return data

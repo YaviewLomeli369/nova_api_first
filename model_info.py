@@ -1,28 +1,37 @@
+import os
+import django
 from django.apps import apps
+from django.db import models
 
+# Configuración de Django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'nova_erp_total.settings')  # Ajusta al nombre de tu archivo de settings
+django.setup()
 
-def print_model_info():
-    for model in apps.get_models():
-        model_name = model._meta.model_name
-        fields_info = []
+# Función para obtener detalles de los modelos y campos
 
-        # Recorremos los campos y mostramos solo lo más esencial
-        for field in model._meta.fields:
-            if field.is_relation:
-                related_model = field.related_model._meta.model_name
-                fields_info.append(
-                    f"{field.name} ({field.get_internal_type()}) -> {related_model}"
-                )
-            else:
-                fields_info.append(
-                    f"{field.name} ({field.get_internal_type()})")
+app_label = 'core'  # Reemplaza con el nombre de tu app (por ejemplo, 'core')
+app = apps.get_app_config(app_label)
 
-        # Imprimir el modelo con sus campos
-        print(f"{model_name}: {', '.join(fields_info)}")
+# Recorremos todos los modelos definidos en la app
+for model in app.get_models():
+    print(f"Modelo: {model.__name__}")
 
+    # Recorremos todos los campos del modelo
+    for field in model._meta.get_fields():
+        field_name = field.name
+        field_type = field.get_internal_type()
+        related_model = getattr(field, 'related_model', None)
+        related_name = getattr(field, 'related_name', None)
 
-# Ejecutar la función
-print_model_info()
+        if related_model:
+            print(f"  Campo: {field_name} (Tipo: {field_type}) - Relacionado con: {related_model.__name__} (related_name: {related_name})")
+        else:
+            print(f"  Campo: {field_name} (Tipo: {field_type})")
+
+    print("\n" + "="*40 + "\n")
+
+# Ejecutar la función para obtener la información
+
 
 # from django.apps import apps
 # from django.db import models

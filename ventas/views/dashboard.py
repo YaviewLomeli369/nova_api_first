@@ -20,12 +20,15 @@ class VentaDashboardAPIView(APIView):
         # Si el parámetro 'fecha' es 'hoy', usamos la fecha actual
         if fecha_param == 'hoy':
             fecha_param = timezone.now().date()
-        else:
+        elif fecha_param:  # Si 'fecha_param' no es None o vacío
             # Intentamos usar la fecha proporcionada en formato 'YYYY-MM-DD'
             try:
                 fecha_param = timezone.datetime.strptime(fecha_param, '%Y-%m-%d').date()
             except ValueError:
                 return Response({"error": "Fecha no válida. Usa el formato YYYY-MM-DD o 'hoy'."})
+        else:
+            # Si no se pasa ninguna fecha, usamos la fecha actual
+            fecha_param = timezone.now().date()
 
         # Filtramos las ventas por la fecha proporcionada
         ventas_filtradas = Venta.objects.filter(fecha__date=fecha_param)

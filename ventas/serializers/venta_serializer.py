@@ -19,7 +19,7 @@ class VentaSerializer(serializers.ModelSerializer):
             'usuario',
             'usuario_username',
             'fecha',
-            'total',   # Calculado automáticamente por señal
+            'total',
             'estado',
             'detalles',
         ]
@@ -28,52 +28,111 @@ class VentaSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles')
-        venta = Venta.objects.create(**validated_data)
 
+        # Crear la venta pero aún no la guardamos
+        venta = Venta(**validated_data)
+
+        # Guardar la venta para obtener su ID
+        venta.save()
+
+        # Ahora que la venta tiene un ID, procesamos los detalles
+        detalles = []
         for detalle_data in detalles_data:
             producto = Producto.objects.select_for_update().get(id=detalle_data['producto'].id)
             cantidad = detalle_data['cantidad']
 
+            # Verificar si hay suficiente stock para el producto
             if producto.stock < cantidad:
                 raise serializers.ValidationError(
                     f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {producto.stock}"
                 )
 
+            # Reducir el stock del producto
             producto.stock -= cantidad
             producto.save()
 
-            DetalleVenta.objects.create(venta=venta, **detalle_data)
+            # Crear los detalles de la venta, ya que la venta ahora tiene un ID
+            detalle = DetalleVenta(
+                venta=venta,  # Usar la venta ya guardada con su ID
+                **detalle_data
+            )
+            detalles.append(detalle)
+
+        # Guardar todos los detalles de la venta
+        DetalleVenta.objects.bulk_create(detalles)
+
+        # Recalcular el total de la venta y guardarla
+        venta.calcular_total()
+        venta.save()
 
         return venta
 
-    @transaction.atomic
-    def update(self, instance, validated_data):
-        detalles_data = validated_data.pop('detalles', None)
 
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
 
-        if detalles_data is not None:
-            for detalle in instance.detalles.all():
-                producto = Producto.objects.select_for_update().get(id=detalle.producto.id)
-                producto.stock += detalle.cantidad
-                producto.save()
+# from rest_framework import serializers
+# from django.db import transaction
+# from ventas.models import Venta, DetalleVenta
+# from inventario.models import Producto
+# from ventas.serializers.detalle_venta_serializer import DetalleVentaSerializer
 
-            instance.detalles.all().delete()
+# class VentaSerializer(serializers.ModelSerializer):
+#     detalles = DetalleVentaSerializer(many=True)
+#     cliente_nombre = serializers.CharField(source='cliente.nombre', read_only=True)
+#     usuario_username = serializers.CharField(source='usuario.username', read_only=True)
 
-            for detalle_data in detalles_data:
-                producto = Producto.objects.select_for_update().get(id=detalle_data['producto'].id)
-                cantidad = detalle_data['cantidad']
+#     class Meta:
+#         model = Venta
+#         fields = [
+#             'id',
+#             'empresa',
+#             'cliente',
+#             'cliente_nombre',
+#             'usuario',
+#             'usuario_username',
+#             'fecha',
+#             'total',
+#             'estado',
+#             'detalles',
+#         ]
+#         read_only_fields = ['id', 'fecha', 'total']
 
-                if producto.stock < cantidad:
-                    raise serializers.ValidationError(
-                        f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {producto.stock}"
-                    )
+#     @transaction.atomic
+#     def create(self, validated_data):
+#         detalles_data = validated_data.pop('detalles')
 
-                producto.stock -= cantidad
-                producto.save()
+#         # Crear la venta sin guardarla inicialmente
+#         venta = Venta(**validated_data)
 
-                DetalleVenta.objects.create(venta=instance, **detalle_data)
+#         # Guarda la venta para que se genere el ID de la venta
+#         venta.save()
 
-        return instance
+#         # Verificamos si el ID de la venta es correcto
+#         if not venta.id:
+#             raise serializers.ValidationError("La venta no pudo generar un ID correctamente.")
+
+#         detalles = []
+#         for detalle_data in detalles_data:
+#             producto = Producto.objects.select_for_update().get(id=detalle_data['producto'].id)
+#             cantidad = detalle_data['cantidad']
+
+#             if producto.stock < cantidad:
+#                 raise serializers.ValidationError(
+#                     f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {producto.stock}"
+#                 )
+
+#             producto.stock -= cantidad
+#             producto.save()
+
+#             # Crear los objetos DetalleVenta pero no guardarlos aún
+#             detalle = DetalleVenta(venta=venta, **detalle_data)
+#             detalles.append(detalle)
+
+#         # Guardar todos los detalles de la venta a la vez usando bulk_create
+#         DetalleVenta.objects.bulk_create(detalles)
+
+#         # Después de guardar los detalles, asegurarnos de calcular y guardar el total de la venta
+#         venta.calcular_total()
+#         venta.save()
+
+#         return venta
+
