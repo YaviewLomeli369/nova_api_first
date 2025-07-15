@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 from ventas.models import Venta, DetalleVenta
-from inventario.models import Producto
+from inventario.models import Producto, Inventario
 from ventas.serializers.detalle_venta_serializer import DetalleVentaSerializer
 
 class VentaSerializer(serializers.ModelSerializer):
@@ -40,18 +40,37 @@ class VentaSerializer(serializers.ModelSerializer):
         total_calculado = 0
         
         for detalle_data in detalles_data:
-            producto = Producto.objects.select_for_update().get(id=detalle_data['producto'].id)
+            producto = Producto.objects.get(id=detalle_data['producto'].id)
             cantidad = detalle_data['cantidad']
 
-            # Verificar si hay suficiente stock para el producto
-            if producto.stock < cantidad:
-                raise serializers.ValidationError(
-                    f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {producto.stock}"
-                )
+            # Obtener el inventario del producto para la empresa del usuario
+            from inventario.models import Inventario
+            try:
+                # Buscar inventario del producto en cualquier sucursal de la empresa
+                inventario = Inventario.objects.filter(
+                    producto=producto,
+                    sucursal__empresa=validated_data['empresa']
+                ).first()
+                
+                if not inventario:
+                    raise serializers.ValidationError(
+                        f"No hay inventario disponible para el producto '{producto.nombre}'"
+                    )
+                
+                # Verificar si hay suficiente stock
+                if inventario.cantidad < cantidad:
+                    raise serializers.ValidationError(
+                        f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {inventario.cantidad}"
+                    )
 
-            # Reducir el stock del producto
-            producto.stock -= cantidad
-            producto.save()
+                # Reducir el stock del inventario
+                inventario.cantidad -= cantidad
+                inventario.save()
+                
+            except Inventario.DoesNotExist:
+                raise serializers.ValidationError(
+                    f"No hay inventario disponible para el producto '{producto.nombre}'"
+                )
 
             # Crear los detalles de la venta
             detalle = DetalleVenta(
