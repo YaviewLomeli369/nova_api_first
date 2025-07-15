@@ -1,8 +1,7 @@
 # accounts/permissions.py
 
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import BasePermission, SAFE_METHODS
 from accounts.constants import Roles
-
 
 class IsEmpleado(BasePermission):
     def has_permission(self, request, view):
@@ -125,3 +124,22 @@ def CustomPermission(permiso_codename):
         def has_permission(self, request, view):
             return request.user.is_authenticated and request.user.has_perm(permiso_codename)
     return _CustomPermission
+
+
+
+
+class IsAdminOrReadOnly(BasePermission):
+    """
+    Permite solo lectura a usuarios normales.
+    Permite lectura y escritura a SuperAdmin o AdminEmpresa.
+    """
+    def has_permission(self, request, view):
+        # Si el método es seguro (GET, HEAD, OPTIONS), se permite a todos los autenticados
+        if request.method in SAFE_METHODS:
+            return request.user and request.user.is_authenticated
+
+        # Si es escritura (POST, PUT, DELETE...), solo Admins
+        return (
+            request.user.is_authenticated and
+            request.user.rol.nombre in ["Superadministrador", "Administrador"]
+        )

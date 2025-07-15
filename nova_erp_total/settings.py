@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 
+import os
+
+
 
 # import sentry_sdk
 # from sentry_sdk.integrations.django import DjangoIntegration
@@ -129,7 +132,8 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # 'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_SCHEMA_CLASS': 'accounts.schema.CustomAutoSchema',
     #CIBERCEGURIDAD VS FUERZA BRUTA
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.UserRateThrottle',
@@ -171,12 +175,20 @@ LOGGING = {
 SIMPLE_JWT = {
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': 'secret_key_here',
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    # 'ACCESS_TOKEN_LIFETIME': timedelta(days=1),        # antes: 5 minutos
+    # 'REFRESH_TOKEN_LIFETIME': timedelta(days=30),      # antes: 1 día
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
+DEBUG = True
+
+if DEBUG:
+    SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(days=1)
+    SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'] = timedelta(days=30)
+else:
+    SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(minutes=5)
+    SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'] = timedelta(days=1)
 
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.google.GoogleOAuth2',
