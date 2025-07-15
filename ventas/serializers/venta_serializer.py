@@ -32,11 +32,13 @@ class VentaSerializer(serializers.ModelSerializer):
         # Crear la venta pero aún no la guardamos
         venta = Venta(**validated_data)
 
-        # Guardar la venta para obtener su ID
+        # Guardar la venta inicialmente con total=0 para obtener su ID
         venta.save()
 
         # Ahora que la venta tiene un ID, procesamos los detalles
         detalles = []
+        total_calculado = 0
+        
         for detalle_data in detalles_data:
             producto = Producto.objects.select_for_update().get(id=detalle_data['producto'].id)
             cantidad = detalle_data['cantidad']
@@ -51,19 +53,22 @@ class VentaSerializer(serializers.ModelSerializer):
             producto.stock -= cantidad
             producto.save()
 
-            # Crear los detalles de la venta, ya que la venta ahora tiene un ID
+            # Crear los detalles de la venta
             detalle = DetalleVenta(
-                venta=venta,  # Usar la venta ya guardada con su ID
+                venta=venta,
                 **detalle_data
             )
             detalles.append(detalle)
+            
+            # Calcular el subtotal y agregarlo al total
+            total_calculado += detalle_data['cantidad'] * detalle_data['precio_unitario']
 
         # Guardar todos los detalles de la venta
         DetalleVenta.objects.bulk_create(detalles)
 
-        # Recalcular el total de la venta y guardarla
-        venta.calcular_total()
-        venta.save()
+        # Actualizar el total de la venta directamente
+        venta.total = total_calculado
+        venta.save(update_fields=['total'])
 
         return venta
 

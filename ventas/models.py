@@ -41,12 +41,20 @@ class Venta(models.Model):
     usuario = models.ForeignKey('accounts.Usuario', on_delete=models.PROTECT, related_name='ventas')
 
     def calcular_total(self):
-        # Sumar los subtotales de los detalles de la venta
-        self.total = sum(detalle.precio_unitario * detalle.cantidad for detalle in self.detalles.all())
+        # Solo calcular si ya tenemos un ID (la venta ya fue guardada)
+        if self.pk:
+            self.total = sum(detalle.precio_unitario * detalle.cantidad for detalle in self.detalles.all())
+        else:
+            # Si no tiene ID, establecer total en 0 inicialmente
+            self.total = 0
 
     def save(self, *args, **kwargs):
-        # Asegurarse de que el total se calcule antes de guardar
-        self.calcular_total()
+        # Si es una nueva venta (no tiene ID), establecer total en 0
+        if not self.pk:
+            self.total = 0
+        else:
+            # Si ya existe, calcular el total
+            self.calcular_total()
         super().save(*args, **kwargs)
 
     class Meta:
