@@ -28,5 +28,7 @@ urlpatterns = [
     # *** Aquí agregas las rutas de ventas ***
     path('api/sales/', include('ventas.urls')),
 
+    path('api/core/', include('core.urls')),
+
 ]
 

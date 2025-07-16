@@ -11,6 +11,29 @@ class IsEmpleado(BasePermission):
             request.user.rol.nombre == "Empleado"
         )
 
+
+class IsSuperAdminOrEmpresaAdminOrReadOnly(BasePermission):
+    """
+    Solo SuperAdmin puede eliminar, Admin Empresa puede crear y actualizar,
+    otros roles solo lectura (GET)
+    """
+    def has_permission(self, request, view):
+        user = request.user
+        if not user.is_authenticated:
+            return False
+
+        if request.method in SAFE_METHODS:
+            return True  # lectura para todos autenticados
+
+        if request.method == 'DELETE':
+            return user.rol.nombre == Roles.SUPERADMIN
+
+        if request.method in ['POST', 'PUT', 'PATCH']:
+            return user.rol.nombre in [Roles.SUPERADMIN, Roles.ADMIN_EMPRESA]
+
+        return False
+
+
 # 🔐 Permisos base por rol exacto (uno por clase)
 class IsSuperAdmin(BasePermission):
     def has_permission(self, request, view):
