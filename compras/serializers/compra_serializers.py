@@ -36,29 +36,6 @@ class CompraSerializer(serializers.ModelSerializer):
 
       return data
 
-    # def validate(self, data):
-    #     estado = data.get('estado')
-    #     if estado and estado not in dict(Compra.ESTADO_CHOICES):
-    #         raise serializers.ValidationError("Estado inválido.")
-
-    #     # Validar duplicados en detalles
-    #     detalles = data.get('detalles', [])
-    #     combinaciones = set()
-
-    #     for detalle in detalles:
-    #         producto = detalle['producto']
-    #         lote = detalle.get('lote')
-    #         fecha_vencimiento = detalle.get('fecha_vencimiento')
-    #         key = (producto.id, lote, fecha_vencimiento)
-
-    #         if key in combinaciones:
-    #             raise serializers.ValidationError(
-    #                 f"Producto duplicado: '{producto.nombre}', lote '{lote}', vencimiento '{fecha_vencimiento}'."
-    #             )
-    #         combinaciones.add(key)
-
-    #     return data
-
     def create(self, validated_data):
         request = self.context.get('request')
         usuario = request.user if request else None

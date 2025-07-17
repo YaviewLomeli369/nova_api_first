@@ -69,6 +69,7 @@ class Inventario(models.Model):
 
 
     class Meta:
+        unique_together = ('producto', 'sucursal', 'lote', 'fecha_vencimiento')
         verbose_name = "Inventario"
         verbose_name_plural = "Inventarios"
         indexes = [
