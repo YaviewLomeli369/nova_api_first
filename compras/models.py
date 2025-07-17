@@ -71,7 +71,8 @@ class DetalleCompra(models.Model):
     class Meta:
         verbose_name = "Detalle de Compra"
         verbose_name_plural = "Detalles de Compras"
-        unique_together = ('compra', 'producto')
+        # unique_together = ('compra', 'producto')
+        unique_together = ('compra', 'producto', 'lote', 'fecha_vencimiento')
 
     def __str__(self):
         return f'{self.producto.nombre} - {self.cantidad} x {self.precio_unitario}'

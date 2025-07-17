@@ -18,22 +18,24 @@ class CompraSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'total', 'usuario', 'empresa']
 
     def validate(self, data):
-      # Validar estado
-      if data.get('estado') not in dict(Compra.ESTADO_CHOICES):
-          raise serializers.ValidationError("Estado inválido.")
-
-      # Validar duplicados en producto
       detalles = data.get('detalles', [])
-      productos = set()
-
+      productos = {}
+  
       for detalle in detalles:
           producto = detalle['producto']
-          if producto.id in productos:
+          lote = detalle.get('lote', '')
+          fecha_vencimiento = detalle.get('fecha_vencimiento', None)
+  
+          # Usa un identificador único por producto, lote y fecha_vencimiento
+          clave_producto = (producto.id, lote, fecha_vencimiento)
+  
+          if clave_producto in productos:
               raise serializers.ValidationError(
-                  f"Producto duplicado: '{producto.nombre}' ya está incluido en los detalles."
+                  f"Producto duplicado: '{producto.nombre}' ya está incluido en los detalles con el mismo lote y fecha de vencimiento."
               )
-          productos.add(producto.id)
-
+  
+          productos[clave_producto] = detalle
+  
       return data
 
     def create(self, validated_data):
