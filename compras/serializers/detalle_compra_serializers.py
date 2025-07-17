@@ -9,10 +9,12 @@ from inventario.models import Producto
 
 class DetalleCompraSerializer(serializers.ModelSerializer):
   nombre_producto = serializers.CharField(source='producto.nombre', read_only=True)
+  lote = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+  fecha_vencimiento = serializers.DateField(required=False, allow_null=True)
 
   class Meta:
       model = DetalleCompra
-      fields = ['id', 'producto', 'nombre_producto', 'cantidad', 'precio_unitario']
+      fields = ['id', 'producto', 'nombre_producto', 'cantidad', 'precio_unitario', 'lote', 'fecha_vencimiento']
 
   def validate(self, data):
       producto = data.get('producto')

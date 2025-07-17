@@ -56,14 +56,20 @@ class CompraSerializer(serializers.ModelSerializer):
       detalles_data = validated_data.pop('detalles')
       total = 0
 
+      # Calculate total first
+      for detalle_data in detalles_data:
+          cantidad = detalle_data['cantidad']
+          precio_unitario = detalle_data['precio_unitario']
+          total += cantidad * precio_unitario
+
       validated_data['empresa'] = empresa
       validated_data['usuario'] = usuario
+      validated_data['total'] = total  # Set the total before creating
 
       with transaction.atomic():
           compra = Compra.objects.create(**validated_data)
           
           for detalle_data in detalles_data:
-              total = 0
               producto = detalle_data['producto']
               cantidad = detalle_data['cantidad']
               precio_unitario = detalle_data['precio_unitario']
@@ -78,8 +84,6 @@ class CompraSerializer(serializers.ModelSerializer):
                   lote=lote,
                   fecha_vencimiento=fecha_vencimiento
               )
-
-              total += cantidad * precio_unitario
 
               inventario, creado = Inventario.objects.get_or_create(
                   producto=producto,
@@ -98,9 +102,6 @@ class CompraSerializer(serializers.ModelSerializer):
                   cantidad=cantidad,
                   usuario=usuario
               )
-
-          compra.total = total
-          compra.save()
 
       return compra
 

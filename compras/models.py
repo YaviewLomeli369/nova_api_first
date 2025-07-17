@@ -58,6 +58,8 @@ class DetalleCompra(models.Model):
     producto = models.ForeignKey(Producto, on_delete=models.PROTECT, related_name='detalles_compra')
     cantidad = models.DecimalField(max_digits=12, decimal_places=2)
     precio_unitario = models.DecimalField(max_digits=14, decimal_places=2)
+    lote = models.CharField(max_length=100, blank=True, null=True)
+    fecha_vencimiento = models.DateField(blank=True, null=True)
 
     def clean(self):
         if self.cantidad <= 0:
