@@ -14,9 +14,13 @@ class CompraViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['empresa', 'proveedor']
-    search_fields = ['factura', 'comentarios']
-    ordering_fields = [ 'creado_en']
-    ordering = []
+    # search_fields = ['factura', 'comentarios']
+    search_fields = ['detalles__producto__nombre']
+
+    # ordering_fields = [ 'creado_en']
+    # ordering = []
+    ordering_fields = ['fecha', 'total']
+    ordering = ['-fecha']  # Orden descendente por defecto
 
     def get_queryset(self):
         empresa = getattr(self.request.user, 'empresa_actual', None)

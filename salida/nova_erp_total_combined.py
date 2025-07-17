@@ -59,6 +59,9 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 
+import os
+
+
 
 # import sentry_sdk
 # from sentry_sdk.integrations.django import DjangoIntegration
@@ -121,11 +124,13 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'social_django',
-
+    'accounts.apps.AccountsConfig',
+    'django_extensions',
     # Apps locales
-    'accounts',
+    # 'accounts',
     'inventario',
-    'ventas',
+    # 'ventas',
+    'ventas.apps.VentasConfig',
     'compras',
     'finanzas',
     'contabilidad',
@@ -137,6 +142,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
+
 ]
 
 INSTALLED_APPS += ['django_filters','drf_spectacular']
@@ -172,7 +178,8 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # 'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_SCHEMA_CLASS': 'accounts.schema.CustomAutoSchema',
     #CIBERCEGURIDAD VS FUERZA BRUTA
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.UserRateThrottle',
@@ -214,12 +221,20 @@ LOGGING = {
 SIMPLE_JWT = {
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': 'secret_key_here',
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    # 'ACCESS_TOKEN_LIFETIME': timedelta(days=1),        # antes: 5 minutos
+    # 'REFRESH_TOKEN_LIFETIME': timedelta(days=30),      # antes: 1 día
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
+DEBUG = True
+
+if DEBUG:
+    SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(days=1)
+    SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'] = timedelta(days=30)
+else:
+    SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(minutes=5)
+    SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'] = timedelta(days=1)
 
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.google.GoogleOAuth2',
@@ -463,37 +478,13 @@ urlpatterns = [
     # **Importar las rutas de inventario correctamente** 
     path('api/inventory/', include('inventario.urls')),  # Esto es lo que estaba comentado
 
+    # *** Aquí agregas las rutas de ventas ***
+    path('api/sales/', include('ventas.urls')),
+
+    path('api/core/', include('core.urls')),
+
+    path('api/purchases/', include('compras.urls')),
 ]
 
 
-# from django.contrib import admin
-# from django.urls import path, include
-# from rest_framework.permissions import AllowAny
-# from django.http import JsonResponse
-# from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-
-# def ping(request):
-#     return JsonResponse({"status": "ok", "message": "Nova ERP API is running"})
-
-# urlpatterns = [
-#     path('admin/', admin.site.urls),
-#     path('api/ping/', ping),
-
-#     # Rutas globales API core
-#     path('api/', include('core.api.urls')),
-
-#     # Rutas específicas de apps
-#     path('api/auth/', include('accounts.urls')),
-#     path('auth/', include('social_django.urls', namespace='social')),
-
-#     # Documentación y esquema
-#     path('api/schema/', SpectacularAPIView.as_view(permission_classes=[AllowAny]), name='schema'),
-#     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=[AllowAny]), name='swagger-ui'),
-
-#     #Inventario
-#     # path('api/', include('inventario.urls')),
-
-#     # Después:
-#     path('api/inventory/', include('inventario.urls')),  #✅ Agrupado como debe
-# ]
 

@@ -145,98 +145,6 @@ class MovimientoInventario(models.Model):
 
 
 
-# --- /home/runner/workspace/inventario/serializers.py ---
-# inventario/serializers.py
-
-from rest_framework import serializers
-from .models import Categoria, Producto, Inventario, MovimientoInventario
-
-class CategoriaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Categoria
-        fields = '__all__'
-        read_only_fields = ['id']
-
-
-class ProductoSerializer(serializers.ModelSerializer):
-    categoria_nombre = serializers.CharField(source='categoria.nombre', read_only=True)
-
-    class Meta:
-        model = Producto
-        fields = [
-            'id', 'empresa', 'codigo', 'nombre', 'descripcion', 'unidad_medida', 'categoria',
-            'categoria_nombre', 'precio_compra', 'precio_venta', 'stock_minimo', 'activo'
-        ]
-        read_only_fields = ['id']
-
-
-    def validate(self, data):
-        precio_venta = data.get('precio_venta', getattr(self.instance, 'precio_venta', None))
-        precio_compra = data.get('precio_compra', getattr(self.instance, 'precio_compra', None))
-
-        # Solo validar si ambos valores están disponibles
-        if precio_venta is not None and precio_compra is not None:
-            if precio_venta < precio_compra:
-                raise serializers.ValidationError("El precio de venta no puede ser menor que el de compra.")
-
-        return data
-
-    # def validate(self, data):
-    #     if data['precio_venta'] < data['precio_compra']:
-    #         raise serializers.ValidationError("El precio de venta no puede ser menor que el de compra.")
-    #     return data
-
-
-class InventarioSerializer(serializers.ModelSerializer):
-    producto_nombre = serializers.CharField(source='producto.nombre', read_only=True)
-    sucursal_nombre = serializers.CharField(source='sucursal.nombre', read_only=True)
-
-    class Meta:
-        model = Inventario
-        fields = [
-            'id', 'producto', 'producto_nombre', 'sucursal', 'sucursal_nombre',
-            'lote', 'fecha_vencimiento', 'cantidad'
-        ]
-        read_only_fields = ['id']
-
-    def validate_cantidad(self, value):
-        if value < 0:
-            raise serializers.ValidationError("La cantidad no puede ser negativa.")
-        return value
-
-
-class MovimientoInventarioSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MovimientoInventario
-        fields = '__all__'
-
-    def validate(self, data):
-        producto = data['producto']
-        tipo = data['tipo']
-        cantidad = data['cantidad']
-
-        if tipo == 'salida' and producto.stock < cantidad:
-            raise serializers.ValidationError("Stock insuficiente para salida.")
-
-        return data
-
-    def create(self, validated_data):
-        producto = validated_data['producto']
-        tipo = validated_data['tipo']
-        cantidad = validated_data['cantidad']
-
-        # Actualiza el stock
-        if tipo == 'entrada':
-            producto.stock += cantidad
-        elif tipo == 'salida':
-            producto.stock -= cantidad
-        elif tipo == 'ajuste':
-            producto.stock = cantidad  # Ajuste directo
-
-        producto.save()
-        return super().create(validated_data)
-
-
 # --- /home/runner/workspace/inventario/urls.py ---
 from rest_framework.routers import DefaultRouter
 from django.urls import path
@@ -356,6 +264,43 @@ urlpatterns = router.urls + [
 # #     path('', include(router.urls)),
 # # ]
 
+
+
+# --- /home/runner/workspace/inventario/filters.py ---
+import django_filters
+from inventario.models import Producto
+from django.db.models import Q
+from django_filters import rest_framework as filters
+from inventario.models import Inventario
+
+class ProductoFilter(filters.FilterSet):
+    nombre = filters.CharFilter(field_name='nombre', lookup_expr='icontains', label='Nombre contiene')
+    descripcion = filters.CharFilter(field_name='descripcion', lookup_expr='icontains', label='Descripción contiene')
+    precio_min = filters.NumberFilter(field_name='precio_venta', lookup_expr='gte', label='Precio mínimo')
+    precio_max = filters.NumberFilter(field_name='precio_venta', lookup_expr='lte', label='Precio máximo')
+    stock_min = filters.NumberFilter(field_name='stock', lookup_expr='gte', label='Stock mínimo')
+    stock_max = filters.NumberFilter(field_name='stock', lookup_expr='lte', label='Stock máximo')
+    fecha_vencimiento_desde = filters.DateFilter(field_name='fecha_vencimiento', lookup_expr='gte')
+    fecha_vencimiento_hasta = filters.DateFilter(field_name='fecha_vencimiento', lookup_expr='lte')
+    activo = filters.BooleanFilter(field_name='activo')
+    categoria = filters.NumberFilter(field_name='categoria_id')
+    proveedor = filters.NumberFilter(field_name='proveedor_id')
+
+    class Meta:
+        model = Producto
+        fields = []
+
+
+
+class InventarioFilter(django_filters.FilterSet):
+    producto = django_filters.CharFilter(field_name='producto__nombre', lookup_expr='icontains', label="Nombre del producto")
+    sucursal = django_filters.NumberFilter(field_name='sucursal__id', label="ID de sucursal")
+    cantidad_min = django_filters.NumberFilter(field_name='cantidad', lookup_expr='gte', label="Cantidad mínima")
+    cantidad_max = django_filters.NumberFilter(field_name='cantidad', lookup_expr='lte', label="Cantidad máxima")
+
+    class Meta:
+        model = Inventario
+        fields = ['producto', 'sucursal', 'cantidad_min', 'cantidad_max']
 
 
 # --- /home/runner/workspace/inventario/migrations/__init__.py ---
@@ -483,119 +428,534 @@ class Migration(migrations.Migration):
 
 
 
-# --- /home/runner/workspace/inventario/views/categoria.py ---
-from rest_framework import viewsets
-from inventario.models import Categoria
-from inventario.serializers import CategoriaSerializer
-from rest_framework.permissions import IsAuthenticated
-
-class CategoriaViewSet(viewsets.ModelViewSet):
-    queryset = Categoria.objects.all()
-    serializer_class = CategoriaSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return self.queryset.filter(empresa=self.request.user.empresa)
-
-
-
-# --- /home/runner/workspace/inventario/views/producto.py ---
-from rest_framework import viewsets
-from inventario.models import Producto
-from inventario.serializers import ProductoSerializer
-from rest_framework.permissions import IsAuthenticated
-
-class ProductoViewSet(viewsets.ModelViewSet):
-    queryset = Producto.objects.all()
-    serializer_class = ProductoSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return self.queryset.filter(empresa=self.request.user.empresa)
-
-
-
-# --- /home/runner/workspace/inventario/views/inventario.py ---
-from rest_framework import viewsets
-from inventario.models import Inventario
-from inventario.serializers import InventarioSerializer
-from rest_framework.permissions import IsAuthenticated
-
-class InventarioViewSet(viewsets.ModelViewSet):
-    queryset = Inventario.objects.select_related('producto', 'sucursal')
-    serializer_class = InventarioSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return self.queryset.filter(producto__empresa=self.request.user.empresa)
-
-
-
 # --- /home/runner/workspace/inventario/views/__init__.py ---
 
 
 
-# --- /home/runner/workspace/inventario/views/stock_alerts.py ---
-# inventario/views/stock_alerts.py
+# --- /home/runner/workspace/inventario/views/producto.py ---
+from rest_framework import viewsets, filters
+from django_filters.rest_framework import DjangoFilterBackend
+from inventario.models import Producto
+from inventario.serializers import ProductoSerializer
+from inventario.filters import ProductoFilter
+from rest_framework.permissions import IsAuthenticated
 
+from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsInventario, OrPermissions
+
+class ProductoViewSet(viewsets.ModelViewSet):
+    serializer_class = ProductoSerializer
+    permission_classes = [IsAuthenticated, OrPermissions(IsSuperAdmin, IsEmpresaAdmin, IsInventario)]
+
+    queryset = Producto.objects.all()
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = ProductoFilter
+
+    search_fields = ['codigo', 'nombre', 'descripcion', 'codigo_barras', 'lote']
+    ordering_fields = ['nombre', 'precio_venta', 'stock', 'fecha_vencimiento']
+    ordering = ['nombre']
+
+    def get_queryset(self):
+        return Producto.objects.filter(empresa=self.request.user.empresa)
+
+
+
+
+
+
+# --- /home/runner/workspace/inventario/views/categoria.py ---
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
+from inventario.models import Categoria
+from inventario.serializers import CategoriaSerializer
+
+from accounts.permissions import IsAdminOrReadOnly
+
+class CategoriaViewSet(viewsets.ModelViewSet):
+    queryset = Categoria.objects.all()
+    serializer_class = CategoriaSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
+
+    def get_queryset(self):
+        # Multitenencia: cada usuario solo ve categorías de su empresa
+        user = self.request.user
+        return self.queryset.filter(empresa=user.empresa)
+
+# from rest_framework import viewsets
+# from rest_framework.permissions import IsAuthenticated
+# from inventario.models import Categoria
+# from inventario.serializers import CategoriaSerializer
+
+# from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsInventario, OrPermissions
+
+# class CategoriaViewSet(viewsets.ModelViewSet):
+#     queryset = Categoria.objects.all()
+#     serializer_class = CategoriaSerializer
+#     permission_classes = [IsAuthenticated, OrPermissions(IsSuperAdmin, IsEmpresaAdmin, IsInventario)]
+
+#     def get_queryset(self):
+#         # Multitenencia: cada usuario solo ve categorías de su empresa
+#         user = self.request.user
+#         return self.queryset.filter(empresa=user.empresa)
+
+
+
+
+
+# --- /home/runner/workspace/inventario/views/inventario.py ---
+# inventario/views/inventario.py
+
+from rest_framework import viewsets, filters
+from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
+
+from inventario.models import Inventario
+from inventario.serializers import InventarioSerializer
+from inventario.filters import InventarioFilter
+from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsInventario, OrPermissions
+
+class InventarioViewSet(viewsets.ModelViewSet):
+    queryset = Inventario.objects.select_related('producto', 'sucursal')
+    serializer_class = InventarioSerializer
+    permission_classes = [IsAuthenticated, OrPermissions(IsSuperAdmin, IsEmpresaAdmin, IsInventario)]
+
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
+    filterset_class = InventarioFilter
+    search_fields = ['producto__nombre', 'sucursal__nombre']  # Búsqueda libre
+    ordering_fields = ['cantidad', 'producto__nombre', 'sucursal__nombre']
+    ordering = ['-cantidad']  # Orden por defecto
+
+    def get_queryset(self):
+        user = self.request.user
+        return self.queryset.filter(producto__empresa=user.empresa)
+
+# from rest_framework import viewsets
+# from rest_framework.permissions import IsAuthenticated
+# from inventario.models import Inventario
+# from inventario.serializers import InventarioSerializer
+
+# from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsInventario, OrPermissions
+
+# class InventarioViewSet(viewsets.ModelViewSet):
+#     queryset = Inventario.objects.select_related('producto', 'sucursal')
+#     serializer_class = InventarioSerializer
+#     permission_classes = [IsAuthenticated, OrPermissions(IsSuperAdmin, IsEmpresaAdmin, IsInventario)]
+
+#     def get_queryset(self):
+#         user = self.request.user
+#         return self.queryset.filter(producto__empresa=user.empresa)
+
+
+
+# --- /home/runner/workspace/inventario/views/movimiento.py ---
+from rest_framework import viewsets, serializers
+from rest_framework.permissions import IsAuthenticated
+from inventario.models import MovimientoInventario, Inventario
+from inventario.serializers import MovimientoInventarioSerializer
+
+from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsInventario, OrPermissions
+from accounts.models import Auditoria  # 👈 Auditoría personalizada
+
+
+class MovimientoInventarioViewSet(viewsets.ModelViewSet):
+    serializer_class = MovimientoInventarioSerializer
+    permission_classes = [IsAuthenticated, OrPermissions(IsSuperAdmin, IsEmpresaAdmin, IsInventario)]
+
+    def get_queryset(self):
+        user = self.request.user
+        return MovimientoInventario.objects.filter(inventario__producto__empresa=user.empresa).order_by('-fecha')
+
+    def perform_create(self, serializer):
+        movimiento = serializer.save(usuario=self.request.user)
+        inventario = movimiento.inventario
+        cantidad = movimiento.cantidad
+
+        if movimiento.tipo_movimiento == 'salida':
+            if cantidad > inventario.cantidad:
+                raise serializers.ValidationError("No hay suficiente inventario para esta salida.")
+            inventario.cantidad -= cantidad
+
+        elif movimiento.tipo_movimiento == 'entrada':
+            inventario.cantidad += cantidad
+
+        elif movimiento.tipo_movimiento == 'ajuste':
+            # Lógica personalizada según sea necesario
+            pass
+
+        inventario.full_clean()
+        inventario.save()
+
+        # 📝 Auditoría
+        Auditoria.objects.create(
+            usuario=self.request.user,
+            accion='crear',
+            tabla_afectada='MovimientoInventario',
+            registro_afectado=f"ID: {movimiento.id}, Tipo: {movimiento.tipo_movimiento}, Cantidad: {movimiento.cantidad}"
+        )
+
+    def perform_update(self, serializer):
+        movimiento = serializer.save()
+
+        # No se actualiza inventario directamente desde aquí (recomendado)
+        # Pero puedes auditar igual:
+        Auditoria.objects.create(
+            usuario=self.request.user,
+            accion='actualizar',
+            tabla_afectada='MovimientoInventario',
+            registro_afectado=f"ID: {movimiento.id}, Tipo: {movimiento.tipo_movimiento}, Cantidad: {movimiento.cantidad}"
+        )
+
+    def perform_destroy(self, instance):
+        # Guarda info antes de borrar
+        info = f"ID: {instance.id}, Tipo: {instance.tipo_movimiento}, Cantidad: {instance.cantidad}"
+        instance.delete()
+
+        Auditoria.objects.create(
+            usuario=self.request.user,
+            accion='eliminar',
+            tabla_afectada='MovimientoInventario',
+            registro_afectado=info
+        )
+
+
+
+
+
+
+# from rest_framework import viewsets, serializers
+# from rest_framework.permissions import IsAuthenticated
+# from inventario.models import MovimientoInventario, Inventario
+# from inventario.serializers import MovimientoInventarioSerializer
+
+# from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsInventario, OrPermissions
+
+# class MovimientoInventarioViewSet(viewsets.ModelViewSet):
+#     serializer_class = MovimientoInventarioSerializer
+#     permission_classes = [IsAuthenticated, OrPermissions(IsSuperAdmin, IsEmpresaAdmin, IsInventario)]
+
+#     def get_queryset(self):
+#         user = self.request.user
+#         return MovimientoInventario.objects.filter(inventario__producto__empresa=user.empresa).order_by('-fecha')
+
+#     def perform_create(self, serializer):
+#         movimiento = serializer.save(usuario=self.request.user)
+#         inventario = movimiento.inventario
+#         cantidad = movimiento.cantidad
+
+#         if movimiento.tipo_movimiento == 'salida':
+#             if cantidad > inventario.cantidad:
+#                 raise serializers.ValidationError("No hay suficiente inventario para esta salida.")
+#             inventario.cantidad -= cantidad
+
+#         elif movimiento.tipo_movimiento == 'entrada':
+#             inventario.cantidad += cantidad
+
+#         elif movimiento.tipo_movimiento == 'ajuste':
+#             # Puedes definir reglas personalizadas si se desea
+#             pass
+
+#         # Validación final y guardado
+#         inventario.full_clean()
+#         inventario.save()
+
+
+
+# # from rest_framework import viewsets
+# # from rest_framework.permissions import IsAuthenticated
+# # from inventario.models import MovimientoInventario
+# # from inventario.serializers import MovimientoInventarioSerializer
+
+# # from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsInventario, OrPermissions
+
+# # class MovimientoInventarioViewSet(viewsets.ModelViewSet):
+# #     serializer_class = MovimientoInventarioSerializer
+# #     permission_classes = [IsAuthenticated, OrPermissions(IsSuperAdmin, IsEmpresaAdmin, IsInventario)]
+
+# #     def get_queryset(self):
+# #         user = self.request.user
+# #         return MovimientoInventario.objects.filter(producto__empresa=user.empresa).order_by('-fecha')
+
+# # # inventario/views/movimiento.py
+
+# # from rest_framework import viewsets
+# # from inventario.models import MovimientoInventario
+# # from inventario.serializers import MovimientoInventarioSerializer
+
+# # class MovimientoInventarioViewSet(viewsets.ModelViewSet):  # ✅ debe ser ModelViewSet
+# #     queryset = MovimientoInventario.objects.all()
+# #     serializer_class = MovimientoInventarioSerializer
+
+
+
+# --- /home/runner/workspace/inventario/views/batches.py ---
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from inventario.models import Producto
-from inventario.serializers import ProductoSerializer
+from inventario.models import Inventario
+from inventario.serializers import InventarioSerializer, BatchSerializer
+from django.utils import timezone
+
+from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsInventario, OrPermissions
+from datetime import timedelta
+
+class BatchView(APIView):
+    permission_classes = [IsAuthenticated, OrPermissions(IsSuperAdmin, IsEmpresaAdmin, IsInventario)]
+
+    def get(self, request):
+        user = request.user
+        hoy = timezone.now().date()
+        alerta_hasta = hoy + timedelta(days=30)
+
+        inventarios = Inventario.objects.select_related('producto').filter(
+            producto__empresa=user.empresa,
+            fecha_vencimiento__isnull=False,
+            fecha_vencimiento__gte=hoy,
+            fecha_vencimiento__lte=alerta_hasta
+        ).order_by('fecha_vencimiento')
+
+        serializer = BatchSerializer(inventarios, many=True)
+        return Response(serializer.data)
+
+
+
+
+
+
+# # inventario/views/batches.py
+
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from rest_framework.permissions import IsAuthenticated
+# from inventario.models import Inventario
+# from inventario.serializers import InventarioSerializer
+# from django.utils import timezone
+
+# class BatchView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         empresa = request.user.empresa
+#         hoy = timezone.now().date()
+#         inventarios = Inventario.objects.filter(
+#             producto__empresa=empresa,
+#             fecha_vencimiento__isnull=False
+#         ).order_by('fecha_vencimiento')
+
+#         serializer = InventarioSerializer(inventarios, many=True)
+#         return Response(serializer.data)
+
+
+
+# --- /home/runner/workspace/inventario/views/stock_alerts.py ---
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from django.db.models import F
 
+from inventario.models import Producto
+from inventario.serializers import ProductoSerializer
+
+from accounts.permissions import IsSuperAdminOrEmpresaAdmin, IsInventario
+from django.db.models import Sum
+
+# inventario/views/stock_alerts.py (o donde prefieras)
+
+from datetime import date, timedelta
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+
+# from inventario.models import Batch
+from inventario.serializers import BatchSerializer
+
+from accounts.permissions import IsSuperAdminOrEmpresaAdmin, IsInventario
+
+class ExpirationAlertView(APIView):
+    permission_classes = [IsAuthenticated & (IsSuperAdminOrEmpresaAdmin | IsInventario)]
+
+    def get(self, request):
+        empresa = request.user.empresa
+        hoy = date.today()
+        alerta_hasta = hoy + timedelta(days=30)  # Próximos 30 días
+
+        lotes_proximos_a_vencer = Batch.objects.filter(
+            empresa=empresa,
+            activo=True,
+            fecha_vencimiento__lte=alerta_hasta,
+            fecha_vencimiento__gte=hoy
+        ).order_by('fecha_vencimiento')
+
+        serializer = BatchSerializer(lotes_proximos_a_vencer, many=True)
+        return Response(serializer.data)
+
 class StockAlertView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated & (IsSuperAdminOrEmpresaAdmin | IsInventario)]
 
     def get(self, request):
         empresa = request.user.empresa
         productos_alerta = Producto.objects.filter(
             empresa=empresa,
-            activo=True,
-            inventarios__cantidad__lt=F('stock_minimo')
-        ).distinct()
+            activo=True
+        ).annotate(
+            stock_total=Sum('inventarios__cantidad')
+        ).filter(
+            stock_total__lt=F('stock_minimo')
+        )
 
         serializer = ProductoSerializer(productos_alerta, many=True)
         return Response(serializer.data)
 
 
 
-# --- /home/runner/workspace/inventario/views/batches.py ---
-# inventario/views/batches.py
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from rest_framework.permissions import IsAuthenticated
+# from django.db.models import F
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+# from inventario.models import Producto
+# from inventario.serializers import ProductoSerializer
+
+# from accounts.permissions import IsSuperAdminOrEmpresaAdmin, IsInventario
+
+# class StockAlertView(APIView):
+#     permission_classes = [IsAuthenticated & (IsSuperAdminOrEmpresaAdmin | IsInventario)]
+
+#     def get(self, request):
+#         empresa = request.user.empresa
+#         productos_alerta = Producto.objects.filter(
+#             empresa=empresa,
+#             activo=True,
+#             inventarios__cantidad__lt=F('stock_minimo')
+#         ).distinct()
+
+#         serializer = ProductoSerializer(productos_alerta, many=True)
+#         return Response(serializer.data)
+
+
+
+# --- /home/runner/workspace/inventario/serializers/producto_serializers.py ---
+from rest_framework import serializers
+from inventario.models import Producto
+
+class ProductoSerializer(serializers.ModelSerializer):
+    categoria_nombre = serializers.CharField(source='categoria.nombre', read_only=True)
+
+    class Meta:
+        model = Producto
+        fields = [
+            'id', 'empresa', 'codigo', 'nombre', 'descripcion', 'unidad_medida', 'categoria',
+            'categoria_nombre', 'precio_compra', 'precio_venta', 'stock_minimo', 'activo'
+        ]
+        read_only_fields = ['id']
+
+    def validate(self, data):
+        precio_venta = data.get('precio_venta', getattr(self.instance, 'precio_venta', None))
+        precio_compra = data.get('precio_compra', getattr(self.instance, 'precio_compra', None))
+
+        if precio_venta is not None and precio_compra is not None:
+            if precio_venta < precio_compra:
+                raise serializers.ValidationError("El precio de venta no puede ser menor que el de compra.")
+
+        return data
+
+
+
+# --- /home/runner/workspace/inventario/serializers/inventario_serializers.py ---
+from rest_framework import serializers
 from inventario.models import Inventario
-from inventario.serializers import InventarioSerializer
-from django.utils import timezone
 
-class BatchView(APIView):
-    permission_classes = [IsAuthenticated]
+class InventarioSerializer(serializers.ModelSerializer):
+    producto_nombre = serializers.CharField(source='producto.nombre', read_only=True)
+    sucursal_nombre = serializers.CharField(source='sucursal.nombre', read_only=True)
 
-    def get(self, request):
-        empresa = request.user.empresa
-        hoy = timezone.now().date()
-        inventarios = Inventario.objects.filter(
-            producto__empresa=empresa,
-            fecha_vencimiento__isnull=False
-        ).order_by('fecha_vencimiento')
+    class Meta:
+        model = Inventario
+        fields = [
+            'id', 'producto', 'producto_nombre', 'sucursal', 'sucursal_nombre',
+            'lote', 'fecha_vencimiento', 'cantidad'
+        ]
+        read_only_fields = ['id']
 
-        serializer = InventarioSerializer(inventarios, many=True)
-        return Response(serializer.data)
+    def validate_cantidad(self, value):
+        if value < 0:
+            raise serializers.ValidationError("La cantidad no puede ser negativa.")
+        return value
 
 
 
-# --- /home/runner/workspace/inventario/views/movimiento.py ---
-# inventario/views/movimiento.py
+# --- /home/runner/workspace/inventario/serializers/categoria_serializers.py ---
+from rest_framework import serializers
+from inventario.models import Categoria
 
-from rest_framework import viewsets
+class CategoriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Categoria
+        fields = '__all__'
+        read_only_fields = ['id']
+
+
+
+# --- /home/runner/workspace/inventario/serializers/movimiento_inventario_serializers.py ---
+from rest_framework import serializers
 from inventario.models import MovimientoInventario
-from inventario.serializers import MovimientoInventarioSerializer
 
-class MovimientoInventarioViewSet(viewsets.ModelViewSet):  # ✅ debe ser ModelViewSet
-    queryset = MovimientoInventario.objects.all()
-    serializer_class = MovimientoInventarioSerializer
+class MovimientoInventarioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MovimientoInventario
+        fields = '__all__'
 
+    def validate(self, data):
+        producto = data['producto']
+        tipo = data['tipo']
+        cantidad = data['cantidad']
+
+        if tipo == 'salida' and producto.stock < cantidad:
+            raise serializers.ValidationError("Stock insuficiente para salida.")
+
+        return data
+
+    def create(self, validated_data):
+        producto = validated_data['producto']
+        tipo = validated_data['tipo']
+        cantidad = validated_data['cantidad']
+
+        if tipo == 'entrada':
+            producto.stock += cantidad
+        elif tipo == 'salida':
+            producto.stock -= cantidad
+        elif tipo == 'ajuste':
+            producto.stock = cantidad  # Ajuste directo
+
+        producto.save()
+        return super().create(validated_data)
+
+
+
+# --- /home/runner/workspace/inventario/serializers/batch_serializer.py ---
+# inventario/serializers.py
+from rest_framework import serializers
+from inventario.models import Inventario
+
+class BatchSerializer(serializers.ModelSerializer):
+    producto_nombre = serializers.CharField(source='producto.nombre', read_only=True)
+
+    class Meta:
+        model = Inventario
+        fields = ['id', 'producto', 'producto_nombre', 'cantidad', 'fecha_vencimiento', 'ubicacion']
+
+
+
+# --- /home/runner/workspace/inventario/serializers/__init__.py ---
+from .categoria_serializers import CategoriaSerializer
+from .producto_serializers import ProductoSerializer
+from .inventario_serializers import InventarioSerializer
+from .movimiento_inventario_serializers import MovimientoInventarioSerializer
+from .batch_serializer import BatchSerializer
+
+__all__ = [
+    'CategoriaSerializer',
+    'ProductoSerializer',
+    'InventarioSerializer',
+    'MovimientoInventarioSerializer',
+    'BatchSerializer',
+]
 

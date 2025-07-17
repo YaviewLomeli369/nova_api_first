@@ -27,13 +27,6 @@ from django.test import TestCase
 
 
 
-# --- /home/runner/workspace/documentos/views.py ---
-from django.shortcuts import render
-
-# Create your views here.
-
-
-
 # --- /home/runner/workspace/documentos/models.py ---
 # documentos/models.py
 
@@ -129,5 +122,9 @@ class Migration(migrations.Migration):
             },
         ),
     ]
+
+
+
+# --- /home/runner/workspace/documentos/views/__init_.py ---
 
 

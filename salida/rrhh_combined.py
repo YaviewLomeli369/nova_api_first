@@ -27,13 +27,6 @@ from django.test import TestCase
 
 
 
-# --- /home/runner/workspace/rrhh/views.py ---
-from django.shortcuts import render
-
-# Create your views here.
-
-
-
 # --- /home/runner/workspace/rrhh/models.py ---
 # rrhh/models.py
 
@@ -192,5 +185,9 @@ class Migration(migrations.Migration):
             index=models.Index(fields=['estado'], name='rrhh_nomina_estado_8abe47_idx'),
         ),
     ]
+
+
+
+# --- /home/runner/workspace/rrhh/views/__init_.py ---
 
 

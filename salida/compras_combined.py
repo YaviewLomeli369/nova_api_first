@@ -27,13 +27,6 @@ from django.test import TestCase
 
 
 
-# --- /home/runner/workspace/compras/views.py ---
-from django.shortcuts import render
-
-# Create your views here.
-
-
-
 # --- /home/runner/workspace/compras/models.py ---
 # compras/models.py
 from django.db import models
@@ -112,6 +105,38 @@ class DetalleCompra(models.Model):
         return f'{self.producto.nombre} - {self.cantidad} x {self.precio_unitario}'
 
 
+
+
+# --- /home/runner/workspace/compras/filters.py ---
+# compras/filters.py
+
+import django_filters
+from compras.models import Compra
+
+class CompraFilter(django_filters.FilterSet):
+    fecha_compra = django_filters.DateFilter(field_name='fecha', lookup_expr='exact')
+
+    class Meta:
+        model = Compra
+        fields = ['empresa', 'proveedor']
+
+
+
+# --- /home/runner/workspace/compras/urls.py ---
+from compras.views.proveedor_views import ProveedorViewSet
+
+
+from rest_framework import routers
+from django.urls import path, include
+from compras.views.compra_views import CompraViewSet
+
+router = routers.DefaultRouter()
+router.register(r'providers', ProveedorViewSet, basename='proveedor')
+router.register(r'purchases', CompraViewSet, basename='purchases')
+
+urlpatterns = [
+    path('', include(router.urls)),
+]
 
 
 # --- /home/runner/workspace/compras/migrations/__init__.py ---
@@ -200,4 +225,210 @@ class Migration(migrations.Migration):
         ),
     ]
 
+
+
+# --- /home/runner/workspace/compras/views/__init_.py ---
+from .proveedor_views import ProveedorViewSet
+
+__all__ = ['ProveedorViewSet']
+
+
+# --- /home/runner/workspace/compras/views/compra_views.py ---
+from rest_framework import viewsets, filters
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
+from compras.models import Compra
+from compras.serializers import CompraSerializer
+from accounts.permissions import IsSuperAdminOrCompras
+
+
+
+class CompraViewSet(viewsets.ModelViewSet):
+    queryset = Compra.objects.all()
+    serializer_class = CompraSerializer
+    # permission_classes = [IsSuperAdminOrCompras] # 👈 Asegúrate de tener este permiso
+    permission_classes = [AllowAny]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['empresa', 'proveedor']
+    search_fields = ['factura', 'comentarios']
+    ordering_fields = [ 'creado_en']
+    ordering = []
+
+    def get_queryset(self):
+        empresa = getattr(self.request.user, 'empresa_actual', None)
+        if empresa:
+            return Compra.objects.filter(empresa=empresa)
+        return Compra.objects.none()
+
+    def perform_create(self, serializer):
+        empresa = getattr(self.request.user, 'empresa_actual', None)
+        serializer.save(empresa=empresa)
+
+
+
+# --- /home/runner/workspace/compras/views/proveedor_views.py ---
+# compras/views/proveedor_views.py
+from rest_framework import viewsets, filters
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from django_filters.rest_framework import DjangoFilterBackend
+from compras.models import Proveedor
+from compras.serializers import ProveedorSerializer
+from accounts.permissions import IsSuperAdminOrCompras
+
+class ProveedorViewSet(viewsets.ModelViewSet):
+    queryset = Proveedor.objects.all()
+    serializer_class = ProveedorSerializer
+    # permission_classes = [IsSuperAdminOrCompras] # 👈 Asegúrate de tener este permiso
+    permission_classes = [AllowAny]
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['empresa', 'rfc', 'correo', 'telefono']
+    search_fields = ['nombre', 'rfc', 'correo']
+    ordering_fields = ['nombre', 'creado_en', 'actualizado_en']
+    ordering = ['nombre']
+
+    def get_queryset(self):
+        user = self.request.user
+        empresa = getattr(user, 'empresa_actual', None)
+        if empresa:
+            return Proveedor.objects.filter(empresa=empresa)
+        return Proveedor.objects.none()
+
+    def perform_create(self, serializer):
+        empresa = getattr(self.request.user, 'empresa_actual', None)
+        serializer.save(empresa=empresa)
+
+
+
+# --- /home/runner/workspace/compras/serializers/proveedor_serializers.py ---
+# compras/serializers.py
+from rest_framework import serializers
+from compras.models import Proveedor, Compra, DetalleCompra
+# from compras.models import Proveedor, Compra, DetalleCompra
+
+from inventario.models import Producto
+
+class ProveedorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Proveedor
+        fields = [
+            'id', 'empresa', 'nombre', 'rfc', 'correo', 'telefono', 'direccion',
+            'creado_en', 'actualizado_en'
+        ]
+        read_only_fields = ['id', 'creado_en', 'actualizado_en']
+
+
+# --- /home/runner/workspace/compras/serializers/__init__.py ---
+from .proveedor_serializers import ProveedorSerializer
+from .detalle_compra_serializers import DetalleCompraSerializer
+from .compra_serializers import CompraSerializer
+
+__all__ = [
+    'ProveedorSerializer',
+    'DetalleCompraSerializer',
+    'CompraSerializer',
+]
+# from .proveedor_serializers import ProveedorSerializer
+# from .detalle_compra_serializers import DetalleCompraSerializer
+# from .compra_serializers import CompraSerializer
+
+# __all__ = [
+#     'ProveedorSerializer',
+#     'DetalleCompraSerializer',
+#     'CompraSerializer',
+# ]
+
+
+# --- /home/runner/workspace/compras/serializers/compra_serializers.py ---
+from rest_framework import serializers
+from compras.models import Proveedor, Compra, DetalleCompra
+from compras.serializers.detalle_compra_serializers import DetalleCompraSerializer
+
+
+class CompraSerializer(serializers.ModelSerializer):
+  detalles = DetalleCompraSerializer(many=True)
+  total = serializers.DecimalField(max_digits=14,
+                                   decimal_places=2,
+                                   read_only=True)
+  nombre_proveedor = serializers.CharField(source='proveedor.nombre',
+                                           read_only=True)
+
+  class Meta:
+    model = Compra
+    fields = [
+        'id', 'empresa', 'proveedor', 'nombre_proveedor', 'fecha', 'estado',
+        'usuario', 'total', 'detalles'
+    ]
+    read_only_fields = ['id', 'total']
+
+  def validate(self, data):
+    if data.get('estado') not in dict(Compra.ESTADO_CHOICES):
+      raise serializers.ValidationError("Estado inválido.")
+    return data
+
+  def create(self, validated_data):
+    detalles_data = validated_data.pop('detalles')
+    total = 0
+
+    compra = Compra.objects.create(**validated_data)
+
+    for detalle_data in detalles_data:
+      detalle = DetalleCompra.objects.create(compra=compra, **detalle_data)
+      total += detalle.cantidad * detalle.precio_unitario
+
+    compra.total = total
+    compra.save()
+
+    return compra
+
+  def update(self, instance, validated_data):
+    detalles_data = validated_data.pop('detalles', None)
+
+    for attr, value in validated_data.items():
+      setattr(instance, attr, value)
+
+    if detalles_data is not None:
+      instance.detalles.all().delete()
+      total = 0
+      for detalle_data in detalles_data:
+        detalle = DetalleCompra.objects.create(compra=instance, **detalle_data)
+        total += detalle.cantidad * detalle.precio_unitario
+      instance.total = total
+
+    instance.save()
+    return instance
+
+
+# --- /home/runner/workspace/compras/serializers/detalle_compra_serializers.py ---
+# compras/serializers.py
+from rest_framework import serializers
+# from .models import  DetalleCompra
+from compras.models import DetalleCompra
+# from compras.serializers.detalle_compra_serializers import DetalleCompraSerializer
+
+from inventario.models import Producto
+
+
+class DetalleCompraSerializer(serializers.ModelSerializer):
+  nombre_producto = serializers.CharField(source='producto.nombre', read_only=True)
+
+  class Meta:
+      model = DetalleCompra
+      fields = ['id', 'producto', 'nombre_producto', 'cantidad', 'precio_unitario']
+
+  def validate(self, data):
+      producto = data.get('producto')
+      cantidad = data.get('cantidad')
+      precio_unitario = data.get('precio_unitario')
+
+      if producto and not producto.activo:
+          raise serializers.ValidationError("El producto seleccionado está inactivo.")
+
+      if cantidad is not None and cantidad <= 0:
+          raise serializers.ValidationError("La cantidad debe ser mayor a cero.")
+
+      if precio_unitario is not None and precio_unitario <= 0:
+          raise serializers.ValidationError("El precio unitario debe ser mayor a cero.")
+
+      return data
 

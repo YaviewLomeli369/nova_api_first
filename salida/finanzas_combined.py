@@ -27,13 +27,6 @@ from django.test import TestCase
 
 
 
-# --- /home/runner/workspace/finanzas/views.py ---
-from django.shortcuts import render
-
-# Create your views here.
-
-
-
 # --- /home/runner/workspace/finanzas/constants.py ---
 # finanzas/constants.py (nuevo archivo)
 ESTADO_CUENTA_CHOICES = [
@@ -242,5 +235,99 @@ class Migration(migrations.Migration):
             index=models.Index(fields=['metodo_pago'], name='finanzas_pa_metodo__d75da5_idx'),
         ),
     ]
+
+
+
+# --- /home/runner/workspace/finanzas/views/__init_.py ---
+
+
+
+# --- /home/runner/workspace/finanzas/serializers/cuentas_por_cobrar_serializer.py ---
+from rest_framework import serializers
+from finanzas.models import CuentaPorCobrar
+
+class CuentaPorCobrarSerializer(serializers.ModelSerializer):
+    venta_id = serializers.IntegerField(source='venta.id', read_only=True)
+    cliente_nombre = serializers.CharField(source='venta.cliente.nombre', read_only=True)
+
+    class Meta:
+        model = CuentaPorCobrar
+        fields = [
+            'id',
+            'venta',
+            'venta_id',
+            'cliente_nombre',
+            'monto',
+            'fecha_vencimiento',
+            'estado',
+        ]
+
+
+
+# --- /home/runner/workspace/finanzas/serializers/cuentas_por_pagar_serializer.py ---
+from rest_framework import serializers
+from finanzas.models import CuentaPorPagar
+
+class CuentaPorPagarSerializer(serializers.ModelSerializer):
+    compra_id = serializers.IntegerField(source='compra.id', read_only=True)
+    proveedor_nombre = serializers.CharField(source='compra.proveedor.nombre', read_only=True)
+
+    class Meta:
+        model = CuentaPorPagar
+        fields = [
+            'id',
+            'compra',
+            'compra_id',
+            'proveedor_nombre',
+            'monto',
+            'fecha_vencimiento',
+            'estado',
+        ]
+
+
+
+# --- /home/runner/workspace/finanzas/serializers/pago_serializer.py ---
+from rest_framework import serializers
+from finanzas.models import CuentaPorCobrar, CuentaPorPagar, Pago
+
+class PagoSerializer(serializers.ModelSerializer):
+    cuenta_cobrar_id = serializers.PrimaryKeyRelatedField(
+        queryset=CuentaPorCobrar.objects.all(), required=False, allow_null=True
+    )
+    cuenta_pagar_id = serializers.PrimaryKeyRelatedField(
+        queryset=CuentaPorPagar.objects.all(), required=False, allow_null=True
+    )
+    tipo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Pago
+        fields = [
+            'id',
+            'cuenta_cobrar_id',
+            'cuenta_pagar_id',
+            'monto',
+            'fecha',
+            'metodo_pago',
+            'tipo',
+        ]
+
+    def get_tipo(self, obj):
+        if obj.cuenta_cobrar:
+            return "CxC"
+        elif obj.cuenta_pagar:
+            return "CxP"
+        return "N/A"
+
+    def validate(self, data):
+        if not data.get('cuenta_cobrar_id') and not data.get('cuenta_pagar_id'):
+            raise serializers.ValidationError("Debe vincularse a una cuenta por cobrar o por pagar.")
+        return data
+
+
+
+# --- /home/runner/workspace/finanzas/serializers/__init__.py ---
+from .cuentas_por_cobrar_serializer import CuentaPorCobrarSerializer
+from .cuentas_por_pagar_serializer import CuentaPorPagarSerializer
+from .pago_serializer import PagoSerializer
 
 
