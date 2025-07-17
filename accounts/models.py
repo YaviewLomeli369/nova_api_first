@@ -136,6 +136,13 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     direccion = models.TextField(blank=True, null=True)
     idioma = models.CharField(max_length=10, default='es')
     tema = models.CharField(max_length=50, default='claro')
+    sucursal_actual = models.ForeignKey(
+        'core.Sucursal',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='usuarios_actuales'
+    )
 
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email']

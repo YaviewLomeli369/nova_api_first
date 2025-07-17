@@ -1,0 +1,68 @@
+IntegrityError at /api/purchases/purchases/
+NOT NULL constraint failed: compras_compra.total
+Request Method:	POST
+Request URL:	http://fca3faea-e64a-4f83-a448-762fa6e71df4-00-1kkfg9j97gplb.spock.replit.dev/api/purchases/purchases/
+Django Version:	5.2.4
+Exception Type:	IntegrityError
+Exception Value:	
+NOT NULL constraint failed: compras_compra.total
+Exception Location:	/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/db/backends/sqlite3/base.py, line 360, in execute
+Raised during:	compras.views.compra_views.CompraViewSet
+Python Executable:	/home/runner/workspace/.pythonlibs/bin/python
+Python Version:	3.10.16
+Python Path:	
+['/home/runner/workspace',
+ '/nix/store/lc7qv2ldzrs1aq3hbyzmbgvn0h2w26pl-sitecustomize/lib/python/site-packages',
+ '/nix/store/izqbpf8fkd2741sqwdca4a9kfy3ss2dx-python3.10-pip-24.0/lib/python3.10/site-packages',
+ '/nix/store/qlb1pg370bb647nj4dhc81y2jszvciz7-python3-3.10.16/lib/python310.zip',
+ '/nix/store/qlb1pg370bb647nj4dhc81y2jszvciz7-python3-3.10.16/lib/python3.10',
+ '/nix/store/qlb1pg370bb647nj4dhc81y2jszvciz7-python3-3.10.16/lib/python3.10/lib-dynload',
+ '/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages',
+ '/nix/store/qlb1pg370bb647nj4dhc81y2jszvciz7-python3-3.10.16/lib/python3.10/site-packages',
+ '/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages',
+ '/nix/store/9ym4wlfl13w339g1jqpgp9llwrqml3jx-python3.10-setuptools-75.1.1/lib/python3.10/site-packages']
+Server time:	Thu, 17 Jul 2025 16:29:23 +0000
+Traceback Switch to copy-and-paste view
+/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/db/backends/utils.py, line 105, in _execute
+            warnings.warn(self.APPS_NOT_READY_WARNING_MSG, category=RuntimeWarning)
+        self.db.validate_no_broken_transaction()
+        with self.db.wrap_database_errors:
+            if params is None:
+                # params default might be backend specific.
+                return self.cursor.execute(sql)
+            else:
+                return self.cursor.execute(sql, params) …
+    def _executemany(self, sql, param_list, *ignored_wrapper_args):
+        # Raise a warning during app initialization (stored_app_configs is only
+        # ever set during testing).
+        if not apps.ready and not apps.stored_app_configs:
+            warnings.warn(self.APPS_NOT_READY_WARNING_MSG, category=RuntimeWarning)
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/db/backends/sqlite3/base.py, line 360, in execute
+    def execute(self, query, params=None):
+        if params is None:
+            return super().execute(query)
+        # Extract names if params is a mapping, i.e. "pyformat" style is used.
+        param_names = list(params) if isinstance(params, Mapping) else None
+        query = self.convert_query(query, param_names=param_names)
+        return super().execute(query, params) …
+    def executemany(self, query, param_list):
+        # Extract names if params is a mapping, i.e. "pyformat" style is used.
+        # Peek carefully as a generator can be passed instead of a list/tuple.
+        peekable, param_list = tee(iter(param_list))
+        if (params := next(peekable, None)) and isinstance(params, Mapping):
+Local vars
+The above exception (NOT NULL constraint failed: compras_compra.total) was the direct cause of the following exception:
+/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/core/handlers/exception.py, line 55, in inner
+        return inner
+    else:
+        @wraps(get_response)
+        def inner(request):
+            try:
+                response = get_response(request) …
+            except Exception as exc:
+                response = response_for_exception(request, exc)
+            return response
+        return inner
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.10/site-packa

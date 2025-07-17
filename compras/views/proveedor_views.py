@@ -5,6 +5,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from compras.models import Proveedor
 from compras.serializers import ProveedorSerializer
 from accounts.permissions import IsSuperAdminOrCompras
+from rest_framework import serializers
 
 class ProveedorViewSet(viewsets.ModelViewSet):
     queryset = Proveedor.objects.all()
@@ -26,5 +27,9 @@ class ProveedorViewSet(viewsets.ModelViewSet):
         return Proveedor.objects.none()
 
     def perform_create(self, serializer):
-        empresa = getattr(self.request.user, 'empresa_actual', None)
+        empresa = getattr(self.request.user, 'empresa', None)
+        print("Empresa actual del usuario:", empresa)
+        if empresa is None:
+            # Si no hay empresa, puedes lanzar excepción o manejar el error
+            raise serializers.ValidationError("No se encontró empresa asignada al usuario")
         serializer.save(empresa=empresa)

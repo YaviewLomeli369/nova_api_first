@@ -4,7 +4,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from compras.models import Compra
 from compras.serializers import CompraSerializer
 from accounts.permissions import IsSuperAdminOrCompras
-
+from rest_framework import serializers
 
 
 class CompraViewSet(viewsets.ModelViewSet):
@@ -28,6 +28,12 @@ class CompraViewSet(viewsets.ModelViewSet):
             return Compra.objects.filter(empresa=empresa)
         return Compra.objects.none()
 
+    # def perform_create(self, serializer):
+    #     empresa = getattr(self.request.user, 'empresa_actual', None)
+    #     serializer.save(empresa=empresa)
     def perform_create(self, serializer):
-        empresa = getattr(self.request.user, 'empresa_actual', None)
-        serializer.save(empresa=empresa)
+        usuario = self.request.user
+        empresa = usuario.empresa
+        if not getattr(usuario, 'sucursal_actual', None):
+            raise serializers.ValidationError("El usuario no tiene una sucursal asignada.")
+        serializer.save(empresa=empresa, usuario=usuario)
