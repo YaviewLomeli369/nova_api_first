@@ -15,95 +15,107 @@ class CompraSerializer(serializers.ModelSerializer):
             'id', 'empresa', 'proveedor', 'nombre_proveedor', 'fecha', 'estado',
             'usuario', 'total', 'detalles'
         ]
-        read_only_fields = ['id', 'total']
+        read_only_fields = ['id', 'total', 'usuario', 'empresa']
 
     def validate(self, data):
-        # Validar estado
-        if data.get('estado') not in dict(Compra.ESTADO_CHOICES):
-            raise serializers.ValidationError("Estado inválido.")
+      # Validar estado
+      if data.get('estado') not in dict(Compra.ESTADO_CHOICES):
+          raise serializers.ValidationError("Estado inválido.")
 
-        # Validar duplicados en detalles
-        detalles = data.get('detalles', [])
-        combinaciones = set()
+      # Validar duplicados en producto
+      detalles = data.get('detalles', [])
+      productos = set()
 
-        for detalle in detalles:
-            producto = detalle['producto']
-            lote = detalle.get('lote', None)
-            fecha_vencimiento = detalle.get('fecha_vencimiento', None)
+      for detalle in detalles:
+          producto = detalle['producto']
+          if producto.id in productos:
+              raise serializers.ValidationError(
+                  f"Producto duplicado: '{producto.nombre}' ya está incluido en los detalles."
+              )
+          productos.add(producto.id)
 
-            key = (producto.id, lote, fecha_vencimiento)
-            if key in combinaciones:
-                raise serializers.ValidationError(
-                    f"Duplicado detectado en detalles: producto '{producto.nombre}' con lote '{lote}' y fecha de vencimiento '{fecha_vencimiento}'."
-                )
-            combinaciones.add(key)
+      return data
 
-        return data
+    # def validate(self, data):
+    #     estado = data.get('estado')
+    #     if estado and estado not in dict(Compra.ESTADO_CHOICES):
+    #         raise serializers.ValidationError("Estado inválido.")
 
-    
+    #     # Validar duplicados en detalles
+    #     detalles = data.get('detalles', [])
+    #     combinaciones = set()
+
+    #     for detalle in detalles:
+    #         producto = detalle['producto']
+    #         lote = detalle.get('lote')
+    #         fecha_vencimiento = detalle.get('fecha_vencimiento')
+    #         key = (producto.id, lote, fecha_vencimiento)
+
+    #         if key in combinaciones:
+    #             raise serializers.ValidationError(
+    #                 f"Producto duplicado: '{producto.nombre}', lote '{lote}', vencimiento '{fecha_vencimiento}'."
+    #             )
+    #         combinaciones.add(key)
+
+    #     return data
 
     def create(self, validated_data):
-      request = self.context['request']
-      usuario = request.user
-      sucursal = getattr(usuario, 'sucursal_actual', None)
-      empresa = getattr(usuario, 'empresa', None)
+        request = self.context.get('request')
+        usuario = request.user if request else None
+        sucursal = getattr(usuario, 'sucursal_actual', None)
+        empresa = getattr(usuario, 'empresa', None)
 
-      if not sucursal:
-          raise serializers.ValidationError("El usuario no tiene una sucursal asignada.")
-      if empresa is None:
-          raise serializers.ValidationError("El usuario no tiene empresa asignada.")
+        if not usuario or not usuario.is_authenticated:
+            raise serializers.ValidationError("Usuario no autenticado.")
+        if not sucursal:
+            raise serializers.ValidationError("El usuario no tiene una sucursal asignada.")
+        if not empresa:
+            raise serializers.ValidationError("El usuario no tiene empresa asignada.")
 
-      detalles_data = validated_data.pop('detalles')
-      total = 0
+        detalles_data = validated_data.pop('detalles')
+        total = sum([d['cantidad'] * d['precio_unitario'] for d in detalles_data])
 
-      # Calculate total first
-      for detalle_data in detalles_data:
-          cantidad = detalle_data['cantidad']
-          precio_unitario = detalle_data['precio_unitario']
-          total += cantidad * precio_unitario
+        validated_data['empresa'] = empresa
+        validated_data['usuario'] = usuario
+        validated_data['total'] = total
 
-      validated_data['empresa'] = empresa
-      validated_data['usuario'] = usuario
-      validated_data['total'] = total  # Set the total before creating
+        with transaction.atomic():
+            compra = Compra.objects.create(**validated_data)
 
-      with transaction.atomic():
-          compra = Compra.objects.create(**validated_data)
-          
-          for detalle_data in detalles_data:
-              producto = detalle_data['producto']
-              cantidad = detalle_data['cantidad']
-              precio_unitario = detalle_data['precio_unitario']
-              lote = detalle_data.get('lote', None)
-              fecha_vencimiento = detalle_data.get('fecha_vencimiento', None)
+            for detalle_data in detalles_data:
+                producto = detalle_data['producto']
+                cantidad = detalle_data['cantidad']
+                precio_unitario = detalle_data['precio_unitario']
+                lote = detalle_data.get('lote')
+                fecha_vencimiento = detalle_data.get('fecha_vencimiento')
 
-              DetalleCompra.objects.create(
-                  compra=compra,
-                  producto=producto,
-                  cantidad=cantidad,
-                  precio_unitario=precio_unitario,
-                  lote=lote,
-                  fecha_vencimiento=fecha_vencimiento
-              )
+                DetalleCompra.objects.create(
+                    compra=compra,
+                    producto=producto,
+                    cantidad=cantidad,
+                    precio_unitario=precio_unitario,
+                    lote=lote,
+                    fecha_vencimiento=fecha_vencimiento
+                )
 
-              inventario, creado = Inventario.objects.get_or_create(
-                  producto=producto,
-                  sucursal=sucursal,
-                  lote=lote,
-                  fecha_vencimiento=fecha_vencimiento,
-                  defaults={'cantidad': 0}
-              )
+                inventario, creado = Inventario.objects.get_or_create(
+                    producto=producto,
+                    sucursal=sucursal,
+                    lote=lote,
+                    fecha_vencimiento=fecha_vencimiento,
+                    defaults={'cantidad': 0}
+                )
+                inventario.cantidad += cantidad
+                inventario.save()
 
-              inventario.cantidad += cantidad
-              inventario.save()
+                MovimientoInventario.objects.create(
+                    inventario=inventario,
+                    tipo_movimiento='entrada',
+                    cantidad=cantidad,
+                    usuario=usuario
+                )
 
-              MovimientoInventario.objects.create(
-                  inventario=inventario,
-                  tipo_movimiento='entrada',
-                  cantidad=cantidad,
-                  usuario=usuario
-              )
-
-      return compra
+        return compra
 
     def update(self, instance, validated_data):
         detalles_data = validated_data.pop('detalles', None)
@@ -115,10 +127,9 @@ class CompraSerializer(serializers.ModelSerializer):
             instance.detalles.all().delete()
             total = 0
             for detalle_data in detalles_data:
-                detalle = DetalleCompra.objects.create(compra=instance, **detalle_data)
-                total += detalle.cantidad * detalle.precio_unitario
+                DetalleCompra.objects.create(compra=instance, **detalle_data)
+                total += detalle_data['cantidad'] * detalle_data['precio_unitario']
             instance.total = total
 
         instance.save()
         return instance
-

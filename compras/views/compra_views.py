@@ -23,10 +23,16 @@ class CompraViewSet(viewsets.ModelViewSet):
     ordering = ['-fecha']  # Orden descendente por defecto
 
     def get_queryset(self):
-        empresa = getattr(self.request.user, 'empresa_actual', None)
+        usuario = self.request.user
+        empresa = getattr(usuario, 'empresa', None)
         if empresa:
             return Compra.objects.filter(empresa=empresa)
         return Compra.objects.none()
+    # def get_queryset(self):
+    #     empresa = getattr(self.request.user, 'empresa_actual', None)
+    #     if empresa:
+    #         return Compra.objects.filter(empresa=empresa)
+    #     return Compra.objects.none()
 
     # def perform_create(self, serializer):
     #     empresa = getattr(self.request.user, 'empresa_actual', None)
