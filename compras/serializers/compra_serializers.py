@@ -77,22 +77,7 @@ class CompraSerializer(serializers.ModelSerializer):
                     fecha_vencimiento=fecha_vencimiento
                 )
 
-                inventario, creado = Inventario.objects.get_or_create(
-                    producto=producto,
-                    sucursal=sucursal,
-                    lote=lote,
-                    fecha_vencimiento=fecha_vencimiento,
-                    defaults={'cantidad': 0}
-                )
-                inventario.cantidad += cantidad
-                inventario.save()
-
-                MovimientoInventario.objects.create(
-                    inventario=inventario,
-                    tipo_movimiento='entrada',
-                    cantidad=cantidad,
-                    usuario=usuario
-                )
+                
 
         return compra
 

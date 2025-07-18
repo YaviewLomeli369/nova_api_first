@@ -28,9 +28,10 @@ class Proveedor(models.Model):
 
 class Compra(models.Model):
     ESTADO_CHOICES = [
-        ('pendiente', 'Pendiente'),
-        ('completada', 'Completada'),
-        ('cancelada', 'Cancelada'),
+        ('pendiente', 'Pendiente'),  # La compra está pendiente de ser recibida
+        ('parcial', 'Parcial'),      # La compra está parcialmente recibida
+        ('recibida', 'Recibida'),    # La compra ha sido completamente recibida
+        ('cancelada', 'Cancelada'),  # En caso de que la compra sea cancelada
     ]
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='compras')
