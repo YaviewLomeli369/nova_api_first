@@ -38,6 +38,12 @@ class CompraSerializer(serializers.ModelSerializer):
   
       return data
 
+    def calcular_total_detalles(self, detalles_data):
+        return sum(
+            detalle['cantidad'] * detalle['precio_unitario']
+            for detalle in detalles_data
+        )
+
     def create(self, validated_data):
         request = self.context.get('request')
         usuario = request.user if request else None
@@ -52,8 +58,8 @@ class CompraSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("El usuario no tiene empresa asignada.")
 
         detalles_data = validated_data.pop('detalles')
-        total = sum([d['cantidad'] * d['precio_unitario'] for d in detalles_data])
 
+        total = self.calcular_total_detalles(detalles_data)
         validated_data['empresa'] = empresa
         validated_data['usuario'] = usuario
         validated_data['total'] = total
@@ -62,24 +68,52 @@ class CompraSerializer(serializers.ModelSerializer):
             compra = Compra.objects.create(**validated_data)
 
             for detalle_data in detalles_data:
-                producto = detalle_data['producto']
-                cantidad = detalle_data['cantidad']
-                precio_unitario = detalle_data['precio_unitario']
-                lote = detalle_data.get('lote')
-                fecha_vencimiento = detalle_data.get('fecha_vencimiento')
+                DetalleCompra.objects.create(compra=compra, **detalle_data)
 
-                DetalleCompra.objects.create(
-                    compra=compra,
-                    producto=producto,
-                    cantidad=cantidad,
-                    precio_unitario=precio_unitario,
-                    lote=lote,
-                    fecha_vencimiento=fecha_vencimiento
-                )
+        return compra
+
+    # def create(self, validated_data):
+    #     request = self.context.get('request')
+    #     usuario = request.user if request else None
+    #     sucursal = getattr(usuario, 'sucursal_actual', None)
+    #     empresa = getattr(usuario, 'empresa', None)
+
+    #     if not usuario or not usuario.is_authenticated:
+    #         raise serializers.ValidationError("Usuario no autenticado.")
+    #     if not sucursal:
+    #         raise serializers.ValidationError("El usuario no tiene una sucursal asignada.")
+    #     if not empresa:
+    #         raise serializers.ValidationError("El usuario no tiene empresa asignada.")
+
+    #     detalles_data = validated_data.pop('detalles')
+    #     total = sum([d['cantidad'] * d['precio_unitario'] for d in detalles_data])
+
+    #     validated_data['empresa'] = empresa
+    #     validated_data['usuario'] = usuario
+    #     validated_data['total'] = total
+
+    #     with transaction.atomic():
+    #         compra = Compra.objects.create(**validated_data)
+
+    #         for detalle_data in detalles_data:
+    #             producto = detalle_data['producto']
+    #             cantidad = detalle_data['cantidad']
+    #             precio_unitario = detalle_data['precio_unitario']
+    #             lote = detalle_data.get('lote')
+    #             fecha_vencimiento = detalle_data.get('fecha_vencimiento')
+
+    #             DetalleCompra.objects.create(
+    #                 compra=compra,
+    #                 producto=producto,
+    #                 cantidad=cantidad,
+    #                 precio_unitario=precio_unitario,
+    #                 lote=lote,
+    #                 fecha_vencimiento=fecha_vencimiento
+    #             )
 
                 
 
-        return compra
+    #     return compra
 
     def update(self, instance, validated_data):
         detalles_data = validated_data.pop('detalles', None)

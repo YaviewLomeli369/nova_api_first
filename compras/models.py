@@ -61,6 +61,7 @@ class DetalleCompra(models.Model):
     precio_unitario = models.DecimalField(max_digits=14, decimal_places=2)
     lote = models.CharField(max_length=100, blank=True, null=True)
     fecha_vencimiento = models.DateField(blank=True, null=True)
+    cantidad_recibida = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # nuevo campo
 
     def clean(self):
         if self.cantidad <= 0:
