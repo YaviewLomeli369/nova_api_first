@@ -11,6 +11,7 @@ class Empresa(models.Model):
     regimen_fiscal = models.CharField(max_length=100)
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
+    razon_social = models.CharField(max_length=255, blank=True, null=True)  # Añadido razon_social
 
     class Meta:
         verbose_name = "Empresa"

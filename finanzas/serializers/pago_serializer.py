@@ -11,6 +11,7 @@ class PagoSerializer(serializers.ModelSerializer):
     )
     saldo_actual = serializers.SerializerMethodField(read_only=True)
     tipo_cuenta = serializers.SerializerMethodField(read_only=True)
+    comprobante = serializers.FileField(required=False, allow_null=True)
 
     class Meta:
         model = Pago
@@ -24,6 +25,7 @@ class PagoSerializer(serializers.ModelSerializer):
             'saldo_actual',
             'tipo_cuenta',
             'observaciones',
+            'comprobante',
         ]
         read_only_fields = ['id', 'saldo_actual', 'tipo_cuenta']
 

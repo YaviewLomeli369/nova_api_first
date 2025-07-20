@@ -16,5 +16,6 @@ class CuentaPorCobrarSerializer(serializers.ModelSerializer):
             'saldo',
             'fecha_vencimiento',
             'estado',
+            'notas',
         ]
         read_only_fields = ['id', 'monto_pagado', 'saldo', 'estado']
