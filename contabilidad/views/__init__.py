@@ -1,0 +1,1 @@
+from contabilidad.views.asiento_contable import AsientoContableViewSet
