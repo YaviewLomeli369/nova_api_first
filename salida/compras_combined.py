@@ -71,6 +71,66 @@ class CompraFilter(django_filters.FilterSet):
         return queryset.filter(detalles__producto__nombre__icontains=value).distinct()
 
 
+# --- /home/runner/workspace/compras/tests.py ---
+# compras/tests.py
+from django.test import TestCase
+from rest_framework.test import APIClient
+from django.urls import reverse
+from accounts.models import Usuario, Empresa
+from compras.models import Compra, DetalleCompra
+from inventario.models import Producto
+from datetime import date
+
+class CompraTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.empresa = Empresa.objects.create(nombre="Empresa Test")
+        self.usuario = Usuario.objects.create_user(username="user1", password="pass123", empresa=self.empresa)
+        self.producto1 = Producto.objects.create(nombre="Producto 1", activo=True)
+        self.producto2 = Producto.objects.create(nombre="Producto 2", activo=True)
+
+        self.client.force_authenticate(user=self.usuario)
+
+    def test_crear_compra_con_detalles_y_total(self):
+        url = reverse('compra-list')  # O el nombre correcto de tu ruta
+        data = {
+            "proveedor": 1,  # crea un proveedor antes o usa uno válido
+            "detalles": [
+                {"producto": self.producto1.id, "cantidad": 10, "precio_unitario": "5.00"},
+                {"producto": self.producto2.id, "cantidad": 2, "precio_unitario": "20.00"}
+            ]
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['total'], '90.00')  # 10*5 + 2*20
+
+    def test_actualizar_compra_y_recalcular_total(self):
+        compra = Compra.objects.create(
+            empresa=self.empresa,
+            proveedor_id=1,  # igual, un proveedor válido
+            usuario=self.usuario,
+            total=0
+        )
+        DetalleCompra.objects.create(compra=compra, producto=self.producto1, cantidad=1, precio_unitario=10)
+        url = reverse('compra-detail', args=[compra.id])
+
+        data = {
+            "detalles": [
+                {"producto": self.producto1.id, "cantidad": 3, "precio_unitario": "15.00"}
+            ],
+            "estado": "pendiente"
+        }
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['total'], '45.00')  # 3*15
+
+    def test_subtotal_detalle(self):
+        compra = Compra.objects.create(empresa=self.empresa, proveedor_id=1, usuario=self.usuario, total=0)
+        detalle = DetalleCompra.objects.create(compra=compra, producto=self.producto1, cantidad=4, precio_unitario=7.5)
+        self.assertEqual(detalle.subtotal, 30.0)
+
+
+
 # --- /home/runner/workspace/compras/models.py ---
 # compras/models.py
 from django.db import models
@@ -100,45 +160,7 @@ class Proveedor(models.Model):
         return self.nombre
 
 
-# class Compra(models.Model):
-#     ESTADO_CHOICES = [
-#         ('pendiente', 'Pendiente'),  # La compra está pendiente de ser recibida
-#         ('parcial', 'Parcial'),      # La compra está parcialmente recibida
-#         ('recibida', 'Recibida'),    # La compra ha sido completamente recibida
-#         ('cancelada', 'Cancelada'),  # En caso de que la compra sea cancelada
-#     ]
 
-#     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='compras')
-#     proveedor = models.ForeignKey(Proveedor, on_delete=models.PROTECT, related_name='compras')
-#     fecha = models.DateTimeField(default=timezone.now)
-#     total = models.DecimalField(max_digits=14, decimal_places=2)
-#     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
-#     usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name='compras_creadas')
-
-#     def calcular_total(self):
-#         return sum(det.subtotal for det in self.detalles.all())
-
-#     def save(self, *args, **kwargs):
-#         # Si la instancia no tiene ID, primero guardamos para crearla
-#         if not self.pk:
-#             super().save(*args, **kwargs)
-#         # Ahora calculamos el total basado en detalles existentes
-#         total_calculado = self.calcular_total()
-#         if self.total != total_calculado:
-#             self.total = total_calculado
-#         super().save(*args, **kwargs)  # Guardar con total actualizado
-
-#     class Meta:
-#         verbose_name = "Compra"
-#         verbose_name_plural = "Compras"
-#         ordering = ['-fecha']
-#         indexes = [
-#             models.Index(fields=['empresa', 'fecha']),
-#             models.Index(fields=['estado']),
-#         ]
-
-#     def __str__(self):
-#         return f'Compra #{self.id} - {self.proveedor.nombre} - {self.fecha.strftime("%Y-%m-%d")}'
 class Compra(models.Model):
     ESTADO_CHOICES = [
         ('pendiente', 'Pendiente'),  # La compra está pendiente de ser recibida
@@ -211,66 +233,6 @@ class DetalleCompra(models.Model):
     def __str__(self):
         return f'{self.producto.nombre} - {self.cantidad} x {self.precio_unitario}'
 
-
-
-
-# --- /home/runner/workspace/compras/tests.py ---
-# compras/tests.py
-from django.test import TestCase
-from rest_framework.test import APIClient
-from django.urls import reverse
-from accounts.models import Usuario, Empresa
-from compras.models import Compra, DetalleCompra
-from inventario.models import Producto
-from datetime import date
-
-class CompraTests(TestCase):
-    def setUp(self):
-        self.client = APIClient()
-        self.empresa = Empresa.objects.create(nombre="Empresa Test")
-        self.usuario = Usuario.objects.create_user(username="user1", password="pass123", empresa=self.empresa)
-        self.producto1 = Producto.objects.create(nombre="Producto 1", activo=True)
-        self.producto2 = Producto.objects.create(nombre="Producto 2", activo=True)
-
-        self.client.force_authenticate(user=self.usuario)
-
-    def test_crear_compra_con_detalles_y_total(self):
-        url = reverse('compra-list')  # O el nombre correcto de tu ruta
-        data = {
-            "proveedor": 1,  # crea un proveedor antes o usa uno válido
-            "detalles": [
-                {"producto": self.producto1.id, "cantidad": 10, "precio_unitario": "5.00"},
-                {"producto": self.producto2.id, "cantidad": 2, "precio_unitario": "20.00"}
-            ]
-        }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data['total'], '90.00')  # 10*5 + 2*20
-
-    def test_actualizar_compra_y_recalcular_total(self):
-        compra = Compra.objects.create(
-            empresa=self.empresa,
-            proveedor_id=1,  # igual, un proveedor válido
-            usuario=self.usuario,
-            total=0
-        )
-        DetalleCompra.objects.create(compra=compra, producto=self.producto1, cantidad=1, precio_unitario=10)
-        url = reverse('compra-detail', args=[compra.id])
-
-        data = {
-            "detalles": [
-                {"producto": self.producto1.id, "cantidad": 3, "precio_unitario": "15.00"}
-            ],
-            "estado": "pendiente"
-        }
-        response = self.client.put(url, data, format='json')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['total'], '45.00')  # 3*15
-
-    def test_subtotal_detalle(self):
-        compra = Compra.objects.create(empresa=self.empresa, proveedor_id=1, usuario=self.usuario, total=0)
-        detalle = DetalleCompra.objects.create(compra=compra, producto=self.producto1, cantidad=4, precio_unitario=7.5)
-        self.assertEqual(detalle.subtotal, 30.0)
 
 
 
