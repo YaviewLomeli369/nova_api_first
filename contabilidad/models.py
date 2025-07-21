@@ -26,6 +26,12 @@ class CuentaContable(models.Model):
     padre = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='subcuentas')
     creada_en = models.DateTimeField(auto_now_add=True)
 
+    @property
+    def saldo(self):
+        debe = sum(m.debe for m in self.movimientos.all())
+        haber = sum(m.haber for m in self.movimientos.all())
+        return debe - haber
+
     class Meta:
         verbose_name = "Cuenta Contable"
         verbose_name_plural = "Cuentas Contables"
@@ -35,7 +41,85 @@ class CuentaContable(models.Model):
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
 
+    def clean(self):
+        super().clean()
+        if CuentaContable.objects.filter(
+            codigo=self.codigo,
+            empresa=self.empresa
+        ).exclude(pk=self.pk).exists():
+            raise ValidationError(f"Ya existe una cuenta con el código '{self.codigo}' para esta empresa.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()  # <- Esto asegura que clean() se ejecute siempre
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.movimientos.exists():
+            raise ValidationError("No se puede eliminar una cuenta contable que tiene movimientos registrados.")
+        super().delete(*args, **kwargs)
+
 # ---------------------- MODELO DE ASIENTOS ----------------------
+
+
+# class AsientoContable(models.Model):
+#     """
+#     Representa un asiento contable (doble partida).
+#     Puede ser generado automáticamente por otros módulos (ej: pagos).
+#     """
+#     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='asientos_contables')
+#     fecha = models.DateField(default=timezone.now)
+#     concepto = models.CharField(max_length=255)
+#     usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name='asientos_creados')
+#     creado_en = models.DateTimeField(auto_now_add=True)
+#     conciliado = models.BooleanField(default=False, help_text="Indica si el asiento está conciliado o cerrado")
+
+#     # 🔗 Referencia al objeto origen (ej: Pago, Compra, etc.)
+#     referencia_id = models.PositiveBigIntegerField(null=True, blank=True, help_text="ID del objeto origen (ej: pago, compra, etc.)")
+#     referencia_tipo = models.CharField(max_length=100, null=True, blank=True, help_text="Tipo de objeto origen (ej: 'Pago', 'Compra')")
+
+#     # 🧾 Totales rápidos para reportes
+#     total_debe = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+#     total_haber = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+#     # ⚙️ Indica si fue generado automáticamente
+#     es_automatico = models.BooleanField(default=False)
+
+#     class Meta:
+#         verbose_name = "Asiento Contable"
+#         verbose_name_plural = "Asientos Contables"
+#         ordering = ['-fecha', '-creado_en']
+#         indexes = [
+#             models.Index(fields=['empresa', 'fecha']),
+#             models.Index(fields=['referencia_tipo', 'referencia_id']),
+#         ]
+
+#     def __str__(self):
+#         return f"Asiento #{self.id} - {self.concepto} ({self.fecha})"
+
+#     def save(self, *args, **kwargs):
+#         self.full_clean()  # Valida antes de guardar
+#         super().save(*args, **kwargs)
+
+#     def clean(self):
+#         super().clean()
+#         detalles = list(self.detalles.all())
+
+#         if len(detalles) < 2:
+#             raise ValidationError("El asiento debe tener al menos dos líneas contables.")
+
+#         total_debe = sum([detalle.debe for detalle in detalles])
+#         total_haber = sum([detalle.haber for detalle in detalles])
+
+#         if total_debe != total_haber:
+#             raise ValidationError("La suma del Debe debe ser igual a la del Haber (partida doble).")
+
+#     def actualizar_totales(self):
+#         """
+#         Suma todos los debe/haber de sus detalles y actualiza los campos total_debe y total_haber.
+#         """
+#         self.total_debe = sum(d.debe for d in self.detalles.all())
+#         self.total_haber = sum(d.haber for d in self.detalles.all())
+#         self.save(update_fields=['total_debe', 'total_haber'])
 
 class AsientoContable(models.Model):
     """
@@ -72,6 +156,27 @@ class AsientoContable(models.Model):
     def __str__(self):
         return f"Asiento #{self.id} - {self.concepto} ({self.fecha})"
 
+    def save(self, *args, **kwargs):
+        self.full_clean()  # Valida antes de guardar
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        if not self.pk:
+            # No validar detalles si el asiento no está guardado aún
+            return
+
+        detalles = list(self.detalles.all())
+
+        if len(detalles) < 2:
+            raise ValidationError("El asiento debe tener al menos dos líneas contables.")
+
+        total_debe = sum(detalle.debe for detalle in detalles)
+        total_haber = sum(detalle.haber for detalle in detalles)
+
+        if total_debe != total_haber:
+            raise ValidationError("La suma del Debe debe ser igual a la del Haber (partida doble).")
+
     def actualizar_totales(self):
         """
         Suma todos los debe/haber de sus detalles y actualiza los campos total_debe y total_haber.
@@ -106,6 +211,10 @@ class DetalleAsiento(models.Model):
                 name='debe_o_haber_no_pueden_ser_cero',
             )
         ]
+
+    def save(self, *args, **kwargs):
+        self.full_clean()  # Ejecuta clean() antes de guardar
+        super().save(*args, **kwargs)
 
     def clean(self):
         if self.debe < 0 or self.haber < 0:
