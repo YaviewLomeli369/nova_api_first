@@ -1105,12 +1105,19 @@ class DetalleVentaSerializer(serializers.ModelSerializer):
 
 # --- /home/runner/workspace/ventas/serializers/venta_serializer.py ---
 from rest_framework import serializers
-from django.db import transaction
 from ventas.models import Venta, DetalleVenta
+from .detalle_venta_serializer import DetalleVentaSerializer
 from inventario.models import Producto, Inventario
-from ventas.serializers.detalle_venta_serializer import DetalleVentaSerializer
+from contabilidad.models import AsientoContable, DetalleAsiento, CuentaContable
+from django.db import transaction
 from datetime import timedelta
 from finanzas.models import CuentaPorCobrar
+from decimal import Decimal, ROUND_HALF_UP
+
+def redondear_decimal(valor, decimales=2):
+    if not isinstance(valor, Decimal):
+        valor = Decimal(str(valor))
+    return valor.quantize(Decimal('1.' + '0' * decimales), rounding=ROUND_HALF_UP)
 
 class VentaSerializer(serializers.ModelSerializer):
     detalles = DetalleVentaSerializer(many=True)
@@ -1132,6 +1139,8 @@ class VentaSerializer(serializers.ModelSerializer):
             'detalles',
         ]
         read_only_fields = ['id', 'fecha', 'total']
+
+    
 
     @transaction.atomic
     def create(self, validated_data):
@@ -1188,7 +1197,59 @@ class VentaSerializer(serializers.ModelSerializer):
             estado='PENDIENTE'
         )
 
+        # Crear asiento contable automático para la venta
+        crear_asiento_venta(venta, usuario)
+
         return venta
+
+
+def crear_asiento_venta(venta, usuario):
+    """
+    Registra el asiento contable automático para una venta.
+    """
+    empresa = venta.empresa
+
+    # Obtener las cuentas contables según el plan contable
+    cuenta_clientes = CuentaContable.objects.get(codigo='1050', empresa=empresa)  # Clientes por cobrar
+    cuenta_ingresos = CuentaContable.objects.get(codigo='4010', empresa=empresa)  # Ingresos por ventas
+    # Aquí si manejas IVA, deberías agregar la cuenta de IVA por pagar (no la pusiste en el listado)
+
+    asiento = AsientoContable.objects.create(
+        empresa=empresa,
+        fecha=venta.fecha,
+        concepto=f"Venta #{venta.id} a {venta.cliente.nombre}",
+        usuario=usuario,
+        referencia_id=venta.id,
+        referencia_tipo='Venta',
+        es_automatico=True,
+    )
+
+    total_redondeado = redondear_decimal(venta.total)
+
+    DetalleAsiento.objects.create(
+        asiento=asiento,
+        cuenta_contable=cuenta_clientes,
+        debe=total_redondeado,
+        haber=Decimal('0.00'),
+        descripcion="Registro de venta - Clientes por cobrar"
+    )
+    DetalleAsiento.objects.create(
+        asiento=asiento,
+        cuenta_contable=cuenta_ingresos,
+        debe=Decimal('0.00'),
+        haber=total_redondeado,
+        descripcion="Registro de venta - Ingresos por ventas"
+    )
+
+    asiento.actualizar_totales()
+
+# from rest_framework import serializers
+# from django.db import transaction
+# from ventas.models import Venta, DetalleVenta
+# from inventario.models import Producto, Inventario
+# from ventas.serializers.detalle_venta_serializer import DetalleVentaSerializer
+# from datetime import timedelta
+# from finanzas.models import CuentaPorCobrar
 
 # class VentaSerializer(serializers.ModelSerializer):
 #     detalles = DetalleVentaSerializer(many=True)
@@ -1215,67 +1276,145 @@ class VentaSerializer(serializers.ModelSerializer):
 #     def create(self, validated_data):
 #         detalles_data = validated_data.pop('detalles')
 
-#         # Crear la venta pero aún no la guardamos
-#         venta = Venta(**validated_data)
+#         request = self.context.get('request')
+#         usuario = request.user if request else None
+#         empresa = getattr(usuario, 'empresa', None)
 
-#         # Guardar la venta inicialmente con total=0 para obtener su ID
+#         venta = Venta(**validated_data)
+#         venta.usuario = usuario
+#         venta.empresa = empresa
 #         venta.save()
 
-#         # Ahora que la venta tiene un ID, procesamos los detalles
 #         detalles = []
 #         total_calculado = 0
-        
+
 #         for detalle_data in detalles_data:
 #             producto = Producto.objects.get(id=detalle_data['producto'].id)
 #             cantidad = detalle_data['cantidad']
 
-#             # Obtener el inventario del producto para la empresa del usuario
-#             from inventario.models import Inventario
-#             try:
-#                 # Buscar inventario del producto en cualquier sucursal de la empresa
-#                 inventario = Inventario.objects.filter(
-#                     producto=producto,
-#                     sucursal__empresa=validated_data['empresa']
-#                 ).first()
-                
-#                 if not inventario:
-#                     raise serializers.ValidationError(
-#                         f"No hay inventario disponible para el producto '{producto.nombre}'"
-#                     )
-                
-#                 # Verificar si hay suficiente stock
-#                 if inventario.cantidad < cantidad:
-#                     raise serializers.ValidationError(
-#                         f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {inventario.cantidad}"
-#                     )
+#             inventario = Inventario.objects.filter(
+#                 producto=producto,
+#                 sucursal__empresa=empresa
+#             ).first()
 
-#                 # Reducir el stock del inventario
-#                 inventario.cantidad -= cantidad
-#                 inventario.save()
-                
-#             except Inventario.DoesNotExist:
+#             if not inventario:
 #                 raise serializers.ValidationError(
 #                     f"No hay inventario disponible para el producto '{producto.nombre}'"
 #                 )
+#             if inventario.cantidad < cantidad:
+#                 raise serializers.ValidationError(
+#                     f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {inventario.cantidad}"
+#                 )
+#             inventario.cantidad -= cantidad
+#             inventario.save()
 
-#             # Crear los detalles de la venta
-#             detalle = DetalleVenta(
-#                 venta=venta,
-#                 **detalle_data
-#             )
+#             detalle = DetalleVenta(venta=venta, **detalle_data)
 #             detalles.append(detalle)
-            
-#             # Calcular el subtotal y agregarlo al total
-#             total_calculado += detalle_data['cantidad'] * detalle_data['precio_unitario']
+#             total_calculado += cantidad * detalle_data['precio_unitario']
 
-#         # Guardar todos los detalles de la venta
 #         DetalleVenta.objects.bulk_create(detalles)
 
-#         # Actualizar el total de la venta directamente
 #         venta.total = total_calculado
 #         venta.save(update_fields=['total'])
 
+#         # Crear CuentaPorCobrar automáticamente
+#         fecha_vencimiento = venta.fecha + timedelta(days=30)  # plazo 30 días
+#         CuentaPorCobrar.objects.create(
+#             empresa=empresa,
+#             venta=venta,
+#             monto=total_calculado,
+#             fecha_vencimiento=fecha_vencimiento,
+#             estado='PENDIENTE'
+#         )
+
 #         return venta
+
+# # class VentaSerializer(serializers.ModelSerializer):
+# #     detalles = DetalleVentaSerializer(many=True)
+# #     cliente_nombre = serializers.CharField(source='cliente.nombre', read_only=True)
+# #     usuario_username = serializers.CharField(source='usuario.username', read_only=True)
+
+# #     class Meta:
+# #         model = Venta
+# #         fields = [
+# #             'id',
+# #             'empresa',
+# #             'cliente',
+# #             'cliente_nombre',
+# #             'usuario',
+# #             'usuario_username',
+# #             'fecha',
+# #             'total',
+# #             'estado',
+# #             'detalles',
+# #         ]
+# #         read_only_fields = ['id', 'fecha', 'total']
+
+# #     @transaction.atomic
+# #     def create(self, validated_data):
+# #         detalles_data = validated_data.pop('detalles')
+
+# #         # Crear la venta pero aún no la guardamos
+# #         venta = Venta(**validated_data)
+
+# #         # Guardar la venta inicialmente con total=0 para obtener su ID
+# #         venta.save()
+
+# #         # Ahora que la venta tiene un ID, procesamos los detalles
+# #         detalles = []
+# #         total_calculado = 0
+        
+# #         for detalle_data in detalles_data:
+# #             producto = Producto.objects.get(id=detalle_data['producto'].id)
+# #             cantidad = detalle_data['cantidad']
+
+# #             # Obtener el inventario del producto para la empresa del usuario
+# #             from inventario.models import Inventario
+# #             try:
+# #                 # Buscar inventario del producto en cualquier sucursal de la empresa
+# #                 inventario = Inventario.objects.filter(
+# #                     producto=producto,
+# #                     sucursal__empresa=validated_data['empresa']
+# #                 ).first()
+                
+# #                 if not inventario:
+# #                     raise serializers.ValidationError(
+# #                         f"No hay inventario disponible para el producto '{producto.nombre}'"
+# #                     )
+                
+# #                 # Verificar si hay suficiente stock
+# #                 if inventario.cantidad < cantidad:
+# #                     raise serializers.ValidationError(
+# #                         f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {inventario.cantidad}"
+# #                     )
+
+# #                 # Reducir el stock del inventario
+# #                 inventario.cantidad -= cantidad
+# #                 inventario.save()
+                
+# #             except Inventario.DoesNotExist:
+# #                 raise serializers.ValidationError(
+# #                     f"No hay inventario disponible para el producto '{producto.nombre}'"
+# #                 )
+
+# #             # Crear los detalles de la venta
+# #             detalle = DetalleVenta(
+# #                 venta=venta,
+# #                 **detalle_data
+# #             )
+# #             detalles.append(detalle)
+            
+# #             # Calcular el subtotal y agregarlo al total
+# #             total_calculado += detalle_data['cantidad'] * detalle_data['precio_unitario']
+
+# #         # Guardar todos los detalles de la venta
+# #         DetalleVenta.objects.bulk_create(detalles)
+
+# #         # Actualizar el total de la venta directamente
+# #         venta.total = total_calculado
+# #         venta.save(update_fields=['total'])
+
+# #         return venta
 
 
 

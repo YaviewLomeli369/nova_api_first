@@ -7,6 +7,13 @@ version = "0.1.0"
 Django = "^5.0"
 python = "^3.10"
 pip = "^25.1.1"
+djangorestframework = "^3.16.0"
+djangorestframework-simplejwt = "^5.5.1"
+drf-spectacular = "^0.28.0"
+pyotp = "^2.9.0"
+pytest = "^8.4.1"
+sentry-sdk = "^2.33.2"
+django-filter = "^25.1"
 [tool.poetry.dev-dependencies]
 
 [tool.pyright]
