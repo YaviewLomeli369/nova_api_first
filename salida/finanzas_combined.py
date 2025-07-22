@@ -10,16 +10,6 @@ from django.contrib import admin
 
 
 
-# --- /home/runner/workspace/finanzas/apps.py ---
-from django.apps import AppConfig
-
-
-class FinanzasConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'finanzas'
-
-
-
 # --- /home/runner/workspace/finanzas/constants.py ---
 # finanzas/constants.py (nuevo archivo)
 ESTADO_CUENTA_CHOICES = [
@@ -42,6 +32,59 @@ def cuentas_por_vencer():
 
 
 
+# --- /home/runner/workspace/finanzas/urls.py ---
+# finanzas/urls.py
+from django.urls import path
+from rest_framework.routers import DefaultRouter
+from finanzas.views.cuentas_por_cobrar import CuentaPorCobrarViewSet
+from finanzas.views.cuentas_por_pagar import CuentaPorPagarViewSet
+from finanzas.views.pagos import PagoViewSet
+from finanzas.views.reportes import (
+    CuentasPorCobrarVencidasView,
+    FlujoDeCajaView,
+    AnalisisPorClienteProveedorView,
+    CuentasPorCobrarAvanzadasView,
+    FlujoDeCajaProyectadoView,
+    RentabilidadClienteProveedorView,
+    CicloConversionEfectivoView,
+    LiquidezCorrienteView,
+)
+
+# Configura el router para las vistas generales de los modelos
+router = DefaultRouter()
+router.register(r'cuentas_por_pagar', CuentaPorPagarViewSet, basename='cuentas_por_pagar')
+router.register(r'cuentas_por_cobrar', CuentaPorCobrarViewSet, basename='cuentas_por_cobrar')
+router.register(r'pagos', PagoViewSet, basename='pagos')
+
+
+
+urlpatterns = [
+    path('reports/overdue_accounts_receivable/', CuentasPorCobrarVencidasView.as_view(), name='overdue_accounts_receivable'),
+    path('reports/cash_flow/', FlujoDeCajaView.as_view(), name='cash_flow'),
+    path('reports/customer_supplier_analysis/', AnalisisPorClienteProveedorView.as_view(), name='customer_supplier_analysis'),
+    path('reports/advanced_accounts_receivable/', CuentasPorCobrarAvanzadasView.as_view(), name='advanced_accounts_receivable'),
+    path('reports/projected_cash_flow/', FlujoDeCajaProyectadoView.as_view(), name='projected_cash_flow'),
+    path('reports/customer_supplier_profitability/', RentabilidadClienteProveedorView.as_view(), name='customer_supplier_profitability'),
+    path('reports/cash_conversion_cycle/', CicloConversionEfectivoView.as_view(), name='cash_conversion_cycle'),
+    path('reports/current_liquidity/', LiquidezCorrienteView.as_view(), name='current_liquidity'),
+]
+
+# Incluir las rutas del router (esto es para las vistas de los modelos)
+urlpatterns += router.urls
+
+
+
+# --- /home/runner/workspace/finanzas/apps.py ---
+from django.apps import AppConfig
+
+class FinanzasConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'finanzas'
+
+    def ready(self):
+        import finanzas.signals
+
+
 # --- /home/runner/workspace/finanzas/models.py ---
 from django.db import models
 from django.utils import timezone
@@ -52,6 +95,8 @@ from django.utils.timezone import now
 from core.models import Empresa
 from ventas.models import Venta
 from compras.models import Compra
+from accounts.models import Usuario
+
 
 
 # ──────────────────────────────────────
@@ -184,6 +229,8 @@ class Pago(models.Model):
     metodo_pago = models.CharField(max_length=20, choices=MetodoPagoChoices.choices)
     observaciones = models.TextField(blank=True, null=True)
     comprobante = models.FileField(upload_to='comprobantes/', null=True, blank=True)
+    asiento_contable_creado = models.BooleanField(default=False)
+    usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True)
 
     def clean(self):
         if self.monto <= 0:
@@ -226,45 +273,155 @@ class Pago(models.Model):
 
 
 
-# --- /home/runner/workspace/finanzas/urls.py ---
-# finanzas/urls.py
-from django.urls import path
-from rest_framework.routers import DefaultRouter
-from finanzas.views.cuentas_por_cobrar import CuentaPorCobrarViewSet
-from finanzas.views.cuentas_por_pagar import CuentaPorPagarViewSet
-from finanzas.views.pagos import PagoViewSet
-from finanzas.views.reportes import (
-    CuentasPorCobrarVencidasView,
-    FlujoDeCajaView,
-    AnalisisPorClienteProveedorView,
-    CuentasPorCobrarAvanzadasView,
-    FlujoDeCajaProyectadoView,
-    RentabilidadClienteProveedorView,
-    CicloConversionEfectivoView,
-    LiquidezCorrienteView,
-)
+# --- /home/runner/workspace/finanzas/signals.py ---
+# finanzas/signals.py
 
-# Configura el router para las vistas generales de los modelos
-router = DefaultRouter()
-router.register(r'cuentas_por_pagar', CuentaPorPagarViewSet, basename='cuentas_por_pagar')
-router.register(r'cuentas_por_cobrar', CuentaPorCobrarViewSet, basename='cuentas_por_cobrar')
-router.register(r'pagos', PagoViewSet, basename='pagos')
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
+from finanzas.models import Pago
+from contabilidad.models import AsientoContable, DetalleAsiento, CuentaContable
+from django.core.exceptions import ObjectDoesNotExist
+
+# -------------------------
+# Eliminar Asiento al borrar un Pago
+# -------------------------
+
+@receiver(post_delete, sender=Pago)
+def eliminar_asiento_al_eliminar_pago(sender, instance, **kwargs):
+    try:
+        AsientoContable.objects.filter(
+            referencia_id=instance.id,
+            referencia_tipo='Pago',
+            empresa=instance.empresa
+        ).delete()
+    except Exception as e:
+        print(f"❌ Error eliminando asiento contable al borrar pago: {e}")
+
+
+# -------------------------
+# Crear Asiento al crear un Pago
+# -------------------------
+
+@receiver(post_save, sender=Pago)
+def crear_asiento_para_pago(sender, instance, created, **kwargs):
+    if not created or instance.asiento_contable_creado:
+        return  # Evita duplicados
+
+    try:
+        # Buscar cuentas contables relacionadas al pago
+        banco_cuenta = CuentaContable.objects.get(codigo='1020', empresa=instance.empresa)
+        gasto_cuenta = CuentaContable.objects.get(codigo='6000', empresa=instance.empresa)
+    except ObjectDoesNotExist as e:
+        print(f"❌ Error: cuenta contable no encontrada: {e}")
+        return
+
+    try:
+        # Crear asiento contable
+        asiento = AsientoContable.objects.create(
+            empresa=instance.empresa,
+            fecha=instance.fecha,
+            concepto=f'Pago automático #{instance.id}',
+            usuario=instance.usuario,
+            conciliado=False,
+            referencia_id=instance.id,
+            referencia_tipo='Pago',
+            total_debe=instance.monto,
+            total_haber=instance.monto,
+            es_automatico=True,
+        )
+
+        # Cargar detalle del asiento (Banco - Haber)
+        DetalleAsiento.objects.create(
+            asiento=asiento,
+            cuenta_contable=banco_cuenta,
+            debe=0,
+            haber=instance.monto,
+            descripcion='Salida de dinero (Pago)'
+        )
+
+        # Cargar detalle del asiento (Gasto - Debe)
+        DetalleAsiento.objects.create(
+            asiento=asiento,
+            cuenta_contable=gasto_cuenta,
+            debe=instance.monto,
+            haber=0,
+            descripcion='Gasto generado por el pago'
+        )
+
+        # Marcar pago como ya registrado contablemente
+        instance.asiento_contable_creado = True
+        instance.save(update_fields=["asiento_contable_creado"])
+
+    except Exception as e:
+        print(f"❌ Error creando asiento contable para el pago: {e}")
 
 
 
-urlpatterns = [
-    path('reports/overdue_accounts_receivable/', CuentasPorCobrarVencidasView.as_view(), name='overdue_accounts_receivable'),
-    path('reports/cash_flow/', FlujoDeCajaView.as_view(), name='cash_flow'),
-    path('reports/customer_supplier_analysis/', AnalisisPorClienteProveedorView.as_view(), name='customer_supplier_analysis'),
-    path('reports/advanced_accounts_receivable/', CuentasPorCobrarAvanzadasView.as_view(), name='advanced_accounts_receivable'),
-    path('reports/projected_cash_flow/', FlujoDeCajaProyectadoView.as_view(), name='projected_cash_flow'),
-    path('reports/customer_supplier_profitability/', RentabilidadClienteProveedorView.as_view(), name='customer_supplier_profitability'),
-    path('reports/cash_conversion_cycle/', CicloConversionEfectivoView.as_view(), name='cash_conversion_cycle'),
-    path('reports/current_liquidity/', LiquidezCorrienteView.as_view(), name='current_liquidity'),
-]
 
-# Incluir las rutas del router (esto es para las vistas de los modelos)
-urlpatterns += router.urls
+# # finanzas/signals.py
+# from django.db.models.signals import post_delete
+# from django.dispatch import receiver
+# from finanzas.models import Pago
+# from contabilidad.models import AsientoContable
+
+# from django.db.models.signals import post_save
+# from django.dispatch import receiver
+# from finanzas.models import Pago
+# from contabilidad.models import AsientoContable, DetalleAsiento, CuentaContable
+
+# @receiver(post_delete, sender=Pago)
+# def eliminar_asiento_al_eliminar_pago(sender, instance, **kwargs):
+#     try:
+#         AsientoContable.objects.filter(
+#             referencia_id=instance.id,
+#             referencia_tipo='Pago',
+#             empresa=instance.empresa
+#         ).delete()
+#     except Exception as e:
+#         print(f"Error eliminando asiento contable al borrar pago: {e}")
+
+
+
+# @receiver(post_save, sender=Pago)
+# def crear_asiento_para_pago(sender, instance, created, **kwargs):
+#     if not created or instance.asiento_contable_creado:
+#         return  # Evitar duplicados
+
+#     banco_cuenta = CuentaContable.objects.get(codigo='1020')  # Ejemplo: Banco
+#     gasto_cuenta = CuentaContable.objects.get(codigo='6000')  # Ejemplo: Gasto general
+
+#     asiento = AsientoContable.objects.create(
+#         empresa=instance.empresa,
+#         fecha=instance.fecha,
+#         concepto=f'Pago automático #{instance.id}',
+#         usuario=instance.usuario,
+#         conciliado=False,
+#         referencia_id=instance.id,
+#         referencia_tipo='Pago',
+#         total_debe=instance.monto,
+#         total_haber=instance.monto,
+#         es_automatico=True,
+#     )
+
+#     DetalleAsiento.objects.create(
+#         asiento=asiento,
+#         cuenta_contable=banco_cuenta,
+#         debe=0,
+#         haber=instance.monto,
+#         descripcion='Salida de dinero (Pago)'
+#     )
+
+#     DetalleAsiento.objects.create(
+#         asiento=asiento,
+#         cuenta_contable=gasto_cuenta,
+#         debe=instance.monto,
+#         haber=0,
+#         descripcion='Gasto generado por el pago'
+#     )
+
+#     # Marcar que ya fue generado para evitar duplicados
+#     instance.asiento_contable_creado = True
+#     instance.save(update_fields=["asiento_contable_creado"])
 
 
 
@@ -480,6 +637,53 @@ class Migration(migrations.Migration):
 
 
 
+# --- /home/runner/workspace/finanzas/migrations/0006_pago_asiento_contable_creado.py ---
+# Generated by Django 5.2.4 on 2025-07-21 22:19
+
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('finanzas', '0005_pago_comprobante'),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name='pago',
+            name='asiento_contable_creado',
+            field=models.BooleanField(default=False),
+        ),
+    ]
+
+
+
+# --- /home/runner/workspace/finanzas/migrations/0007_pago_usuario.py ---
+# Generated by Django 5.2.4 on 2025-07-21 22:23
+
+import django.db.models.deletion
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('finanzas', '0006_pago_asiento_contable_creado'),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name='pago',
+            name='usuario',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL),
+        ),
+    ]
+
+
+
 # --- /home/runner/workspace/finanzas/views/__init_.py ---
 from .cuentas_por_pagar import CuentaPorPagarViewSet
 from .cuentas_por_cobrar import CuentaPorCobrarViewSet
@@ -554,31 +758,6 @@ class CuentaPorPagarViewSet(viewsets.ModelViewSet):
             qs = qs.filter(fecha_vencimiento=fecha)
         return qs
 
-
-
-# --- /home/runner/workspace/finanzas/views/pagos.py ---
-from finanzas.models import Pago
-from finanzas.serializers import PagoSerializer
-from rest_framework import status, viewsets
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-
-class PagoViewSet(viewsets.ModelViewSet):
-    """
-    Listar todos los pagos y crear pagos nuevos.
-    """
-    queryset = Pago.objects.select_related('cuenta_cobrar', 'cuenta_pagar').all()
-    serializer_class = PagoSerializer
-    permission_classes = [IsAuthenticated]
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        pago = serializer.save()
-
-        # La lógica para actualizar el estado se encuentra dentro del método save() del serializer
-
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 # --- /home/runner/workspace/finanzas/views/reportes.py ---
@@ -862,6 +1041,70 @@ class LiquidezCorrienteView(APIView):
             ratio = round(activos_corrientes / pasivos_corrientes, 2)
 
         return Response({"liquidez_corriente": ratio})
+
+
+
+# --- /home/runner/workspace/finanzas/views/pagos.py ---
+from finanzas.models import Pago
+from finanzas.serializers import PagoSerializer
+from rest_framework import status, viewsets
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from contabilidad.utils.asientos import registrar_asiento_pago
+from rest_framework.exceptions import ValidationError
+from contabilidad.models import AsientoContable
+
+class PagoViewSet(viewsets.ModelViewSet):
+    # ...
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        pago = serializer.save()
+
+        # Crear asiento contable automático
+        try:
+            registrar_asiento_pago(pago, request.user)
+        except Exception as e:
+            # Loguear error en consola (puedes usar logging)
+            print(f"Error al registrar asiento contable: {e}")
+            # Retornar respuesta exitosa pero con advertencia
+            return Response({
+                "pago": PagoSerializer(pago).data,
+                "advertencia": f"No se pudo registrar el asiento contable: {str(e)}"
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(PagoSerializer(pago).data, status=status.HTTP_201_CREATED)
+
+
+    def destroy(self, request, *args, **kwargs):
+        pago = self.get_object()
+
+        asiento = AsientoContable.objects.filter(
+            referencia_id=pago.id,
+            referencia_tipo='Pago',
+            empresa=pago.empresa
+        ).first()
+
+        if asiento and asiento.conciliado:
+            raise ValidationError("No se puede eliminar este pago porque su asiento contable ya está conciliado o cerrado.")
+
+        return super().destroy(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        pago = self.get_object()
+        asiento = AsientoContable.objects.filter(
+            referencia_id=pago.id,
+            referencia_tipo='Pago',
+            empresa=pago.empresa
+        ).first()
+
+        if asiento and asiento.conciliado:
+            return Response(
+                {"detail": "No se puede modificar este pago porque su asiento contable ya está conciliado o cerrado."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return super().update(request, *args, **kwargs)
+
 
 
 

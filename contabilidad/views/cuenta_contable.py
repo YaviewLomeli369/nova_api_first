@@ -9,7 +9,7 @@ class CuentaContableViewSet(viewsets.ModelViewSet):
     queryset = CuentaContable.objects.all()
     serializer_class = CuentaContableSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['empresa', 'codigo', 'nivel', 'padre']
+    filterset_fields = ['empresa', 'codigo', 'padre']
     serializer_class = CuentaContableSerializer
     permission_classes = [permissions.IsAuthenticated]  # Aquí puedes agregar permisos personalizados
 

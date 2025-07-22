@@ -7,6 +7,8 @@ from django.utils.timezone import now
 from core.models import Empresa
 from ventas.models import Venta
 from compras.models import Compra
+from accounts.models import Usuario
+
 
 
 # ──────────────────────────────────────
@@ -139,6 +141,8 @@ class Pago(models.Model):
     metodo_pago = models.CharField(max_length=20, choices=MetodoPagoChoices.choices)
     observaciones = models.TextField(blank=True, null=True)
     comprobante = models.FileField(upload_to='comprobantes/', null=True, blank=True)
+    asiento_contable_creado = models.BooleanField(default=False)
+    usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True)
 
     def clean(self):
         if self.monto <= 0:
