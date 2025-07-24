@@ -4,6 +4,31 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+class ClaveSATProducto(models.Model):
+    clave = models.CharField(max_length=20, unique=True)  # ej: "01010101"
+    descripcion = models.CharField(max_length=255)
+
+    class Meta:
+        verbose_name = "Clave SAT Producto"
+        verbose_name_plural = "Claves SAT Productos"
+        ordering = ['clave']
+
+    def __str__(self):
+        return f"{self.clave} - {self.descripcion}"
+
+
+class ClaveSATUnidad(models.Model):
+    clave = models.CharField(max_length=10, unique=True)  # ej: "H87"
+    descripcion = models.CharField(max_length=255)
+
+    class Meta:
+        verbose_name = "Clave SAT Unidad"
+        verbose_name_plural = "Claves SAT Unidades"
+        ordering = ['clave']
+
+    def __str__(self):
+        return f"{self.clave} - {self.descripcion}"
+
 class Categoria(models.Model):
     empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='categorias')
     nombre = models.CharField(max_length=100)
@@ -26,12 +51,32 @@ class Producto(models.Model):
     codigo = models.CharField(max_length=50, unique=True)
     nombre = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True, null=True)
-    unidad_medida = models.CharField(max_length=50)
+
+    # En vez de usar unidad_medida de texto libre, se apunta a clave SAT unidad
+    unidad_medida = models.ForeignKey(
+        ClaveSATUnidad,
+        on_delete=models.PROTECT,
+        related_name='productos',
+        null=True,
+        blank=True,
+        help_text="Clave SAT de unidad de medida"
+    )
+
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, related_name='productos')
     precio_compra = models.DecimalField(max_digits=10, decimal_places=2)
     precio_venta = models.DecimalField(max_digits=10, decimal_places=2)
     stock_minimo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     activo = models.BooleanField(default=True)
+
+    # Clave SAT del producto (por ejemplo para facturación electrónica)
+    clave_sat = models.ForeignKey(
+        ClaveSATProducto,
+        on_delete=models.PROTECT,
+        related_name='productos',
+        null=True,
+        blank=True,
+        help_text="Clave SAT del producto o servicio"
+    )
 
     def clean(self):
         if self.precio_venta < self.precio_compra:
