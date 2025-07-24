@@ -83,6 +83,8 @@ urlpatterns = [
     path('api/finanzas/', include('finanzas.urls')),
 
     path('api/contabilidad/', include('contabilidad.urls')),
+
+    path('api/facturacion/', include('facturacion.urls')),
 ]
 
 
@@ -106,19 +108,17 @@ from datetime import timedelta
 
 import os
 
-
-
 # import sentry_sdk
 # from sentry_sdk.integrations.django import DjangoIntegration
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 import sentry_sdk
 
 sentry_sdk.init(
-    dsn="https://59a6b3f5a097d60c09ff94e6a517e6f4@o4509617180311552.ingest.us.sentry.io/4509617183981568",
+    dsn=
+    "https://59a6b3f5a097d60c09ff94e6a517e6f4@o4509617180311552.ingest.us.sentry.io/4509617183981568",
     # Add data like request headers and IP for users,
     # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
     send_default_pii=True,
@@ -126,7 +126,9 @@ sentry_sdk.init(
 
 ALLOWED_IPS = ['190.10.20.30', '10.0.0.1']  # oficina, cliente
 
+
 class IPWhitelistMiddleware:
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -145,7 +147,6 @@ class IPWhitelistMiddleware:
 #     send_default_pii=True,
 # )
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
@@ -155,9 +156,7 @@ SECRET_KEY = 'django-insecure-qamg-)bhge&qtj+!*ayn4+*vp6=u708^1^$nu5hf7#1refr+do
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [ '*' ]
-
-
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -183,16 +182,17 @@ INSTALLED_APPS = [
     'rrhh',
     'documentos',
     'core',
+    'facturacion',
 
     # REST Framework y JWT
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
-
 ]
+FACTURAMA_USER = "EKU9003173C9222"
+FACTURAMA_PASSWORD = "Losy990209bn7"
 
-INSTALLED_APPS += ['django_filters','drf_spectacular']
-
+INSTALLED_APPS += ['django_filters', 'drf_spectacular']
 
 AUTH_USER_MODEL = 'accounts.Usuario'
 
@@ -202,7 +202,6 @@ MIDDLEWARE = [
 
     # CORS
     'corsheaders.middleware.CorsMiddleware',
-    
     'django.middleware.common.CommonMiddleware',
     # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -215,25 +214,27 @@ MIDDLEWARE = [
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 25,  # Páginas de 20 resultados
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
-    ),
+    'DEFAULT_FILTER_BACKENDS':
+    ['django_filters.rest_framework.DjangoFilterBackend'],
+    'DEFAULT_PAGINATION_CLASS':
+    'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE':
+    25,  # Páginas de 20 resultados
+    'DEFAULT_AUTHENTICATION_CLASSES':
+    ('rest_framework_simplejwt.authentication.JWTAuthentication', ),
+    'DEFAULT_PERMISSION_CLASSES':
+    ('rest_framework.permissions.IsAuthenticated', ),
     # 'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'DEFAULT_SCHEMA_CLASS': 'accounts.schema.CustomAutoSchema',
+    'DEFAULT_SCHEMA_CLASS':
+    'accounts.schema.CustomAutoSchema',
     #CIBERCEGURIDAD VS FUERZA BRUTA
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.UserRateThrottle',
         'rest_framework.throttling.AnonRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'user': '100/minute',     # ajusta según tu tráfico real
-        'anon': '10/minute',      # no autenticados (login, reset)
+        'user': '100/minute',  # ajusta según tu tráfico real
+        'anon': '10/minute',  # no autenticados (login, reset)
         'login': '5/minute',  # 👈 solo para login
     },
 }
@@ -242,12 +243,12 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Nova ERP API',
     'DESCRIPTION': 'Documentación de la API del sistema Nova ERP',
     'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': True,  # 👈 Esta línea permite conectar correctamente con /docs/
+    'SERVE_INCLUDE_SCHEMA':
+    True,  # 👈 Esta línea permite conectar correctamente con /docs/
     'SCHEMA_PATH_PREFIX': '/api/schema/',
     'PARSER_CLASSES': ['drf_spectacular.parsers.YAMLParser'],
     'RENDERER_CLASSES': ['drf_spectacular.renderers.YAMLRenderer'],
 }
-
 
 # settings.py DESPUES SE DESCOMENTARA CON LOGINS CREO
 LOGGING = {
@@ -291,7 +292,6 @@ AUTHENTICATION_BACKENDS = (
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '1039784506241-ehqp78nga5sh3rkumrii0ltkgcd46bph.apps.googleusercontent.com'
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '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'
 
-
 CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = 'nova_erp_total.urls'
@@ -307,7 +307,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'social_django.context_processors.backends',   # Agrega esta línea
+                'social_django.context_processors.backends',  # Agrega esta línea
                 'social_django.context_processors.login_redirect',  # Y esta
             ],
         },
@@ -315,7 +315,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'nova_erp_total.wsgi.application'
-
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
@@ -327,25 +326,27 @@ DATABASES = {
     }
 }
 
-
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'NAME':
+        'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'NAME':
+        'django.contrib.auth.password_validation.MinimumLengthValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        'NAME':
+        'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        'NAME':
+        'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
@@ -357,7 +358,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
@@ -402,8 +402,6 @@ SECURE_HSTS_PRELOAD = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
-
-
 # 🧪 3.4. ¿Cómo comprobar que estás protegido?
 # Usa curl -I o Postman para ver las cabeceras HTTP de tus respuestas.
 
@@ -417,9 +415,6 @@ CSRF_COOKIE_SECURE = True
 
 # Referrer-Policy: same-origin
 
-
-
-
 # Permite solo tu frontend (React, Vue, etc.)
 CORS_ALLOWED_ORIGINS = [
     "https://fca3faea-e64a-4f83-a448-762fa6e71df4-00-1kkfg9j97gplb.spock.replit.dev",
@@ -431,9 +426,7 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_ALL_ORIGINS = False
 
 # Métodos permitidos
-CORS_ALLOW_METHODS = [
-    "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
-]
+CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
 # Headers permitidos
 CORS_ALLOW_HEADERS = [
@@ -443,9 +436,6 @@ CORS_ALLOW_HEADERS = [
     "origin",
     "user-agent",
 ]
-
-
-
 
 # ✔️ Checklist de seguridad – Módulo ACCOUNTS – Nova ERP
 
@@ -494,6 +484,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'yaview.lomeli@gmail.com'
 EMAIL_HOST_PASSWORD = 'ncvs lfro srke goiq'
 DEFAULT_FROM_EMAIL = 'Nova_erp_api <yaview.lomeli@gmail.com>'
+
 
 
 
@@ -4267,7 +4258,7 @@ from rest_framework.routers import DefaultRouter
 from django.urls import path
 from ventas.views import ClienteViewSet, VentaViewSet, DetalleVentaViewSet
 from ventas.views.dashboard import VentaDashboardAPIView  # Asegúrate de importar desde el archivo correcto
-
+from ventas.views.facturar_venta import FacturarVentaAPIView  # Asegúrate que esta vista existe y está bien importada
 # Instanciamos el router
 router = DefaultRouter()
 router.register(r'costumers', ClienteViewSet)
@@ -4277,6 +4268,7 @@ router.register(r'details', DetalleVentaViewSet)
 # Añadimos el endpoint del dashboard de ventas fuera del router
 urlpatterns = router.urls + [
     path('dashboard/', VentaDashboardAPIView.as_view(), name='venta-dashboard'),
+    path('invoice-sale/<int:id>/', FacturarVentaAPIView.as_view(), name='facturar-venta'),
 ]
 
 
@@ -4375,144 +4367,339 @@ class Migration(migrations.Migration):
 
 
 
+# --- /home/runner/workspace/ventas/filters/clientes.py ---
+# ventas/filters/clientes.py
+import django_filters
+from ventas.models import Cliente
+
+class ClienteFilter(django_filters.FilterSet):
+    nombre = django_filters.CharFilter(lookup_expr='icontains')
+    rfc = django_filters.CharFilter(lookup_expr='icontains')
+    correo = django_filters.CharFilter(lookup_expr='icontains')
+    telefono = django_filters.CharFilter(lookup_expr='icontains')
+    creado_en = django_filters.DateFromToRangeFilter()
+
+    class Meta:
+        model = Cliente
+        fields = ['empresa', 'nombre', 'rfc', 'correo', 'telefono', 'creado_en']
+
+
+
+# --- /home/runner/workspace/ventas/serializers/cliente_serializer.py ---
+from rest_framework import serializers
+from ventas.models import Cliente
+
+class ClienteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cliente
+        fields = [
+            'id',
+            'empresa',
+            'nombre',
+            'rfc',
+            'correo',
+            'telefono',
+            'direccion',
+            'creado_en',
+            'actualizado_en',
+        ]
+        read_only_fields = ['id', 'creado_en', 'actualizado_en']
+
+
+
+# --- /home/runner/workspace/ventas/serializers/__init__.py ---
+from .cliente_serializer import ClienteSerializer
+from .detalle_venta_serializer import DetalleVentaSerializer
+from .venta_serializer import VentaSerializer
+
+
+# --- /home/runner/workspace/ventas/serializers/detalle_venta_serializer.py ---
+from rest_framework import serializers
+from ventas.models import DetalleVenta
+from inventario.models import Inventario
+
+class DetalleVentaSerializer(serializers.ModelSerializer):
+    producto_nombre = serializers.CharField(source='producto.nombre', read_only=True)
+    subtotal = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DetalleVenta
+        fields = [
+            'id',
+            'producto',
+            'producto_nombre',
+            'cantidad',
+            'precio_unitario',
+            'subtotal',
+        ]
+
+    def get_subtotal(self, obj):
+        return obj.cantidad * obj.precio_unitario
+
+    def validate(self, data):
+        cantidad = data.get('cantidad')
+        precio_unitario = data.get('precio_unitario')
+        producto = data.get('producto')
+
+        if cantidad is None or cantidad <= 0:
+            raise serializers.ValidationError("La cantidad debe ser mayor a cero.")
+        if precio_unitario is None or precio_unitario <= 0:
+            raise serializers.ValidationError("El precio unitario debe ser mayor a cero.")
+        if producto is None:
+            raise serializers.ValidationError("El producto es obligatorio.")
+
+        # Obtener todos los inventarios asociados al producto
+        inventarios = Inventario.objects.filter(producto=producto)
+
+        # Sumar la cantidad disponible de los inventarios
+        stock_disponible = sum(inventario.cantidad for inventario in inventarios)
+
+        # Verificar si hay suficiente stock
+        if stock_disponible < cantidad:
+            raise serializers.ValidationError(
+                f"No hay suficiente stock para el producto '{producto.nombre}'. Stock disponible: {stock_disponible}"
+            )
+
+        return data
+
+
+
+# --- /home/runner/workspace/ventas/serializers/venta_serializer.py ---
+from rest_framework import serializers
+from ventas.models import Venta, DetalleVenta
+from .detalle_venta_serializer import DetalleVentaSerializer
+from inventario.models import Producto, Inventario
+from contabilidad.helpers.asientos import generar_asiento_para_venta
+from finanzas.models import CuentaPorCobrar
+from django.db import transaction
+from datetime import timedelta
+from decimal import Decimal, ROUND_HALF_UP
+from rest_framework.exceptions import ValidationError as DRFValidationError
+from django.db.models import F
+
+def redondear_decimal(valor, decimales=2):
+    if not isinstance(valor, Decimal):
+        valor = Decimal(str(valor))
+    return valor.quantize(Decimal('1.' + '0' * decimales), rounding=ROUND_HALF_UP)
+
+class VentaSerializer(serializers.ModelSerializer):
+    detalles = DetalleVentaSerializer(many=True)
+    cliente_nombre = serializers.CharField(source='cliente.nombre', read_only=True)
+    usuario_username = serializers.CharField(source='usuario.username', read_only=True)
+
+    class Meta:
+        model = Venta
+        fields = [
+            'id',
+            'empresa',
+            'cliente',
+            'cliente_nombre',
+            'usuario',
+            'usuario_username',
+            'fecha',
+            'total',
+            'estado',
+            'detalles',
+        ]
+        read_only_fields = ['id', 'fecha', 'total']
+
+    @transaction.atomic
+    def create(self, validated_data):
+        detalles_data = validated_data.pop('detalles')
+
+        request = self.context.get('request')
+        usuario = request.user if request else None
+        empresa = getattr(usuario, 'empresa', None)
+
+        if usuario is None:
+            raise DRFValidationError("Usuario no autenticado.")
+        if empresa is None:
+            raise DRFValidationError("El usuario no tiene una empresa asignada.")
+
+        venta = Venta(**validated_data)
+        venta.usuario = usuario
+        venta.empresa = empresa
+        venta.save()
+
+        detalles = []
+        total_calculado = Decimal('0.00')
+
+        for detalle_data in detalles_data:
+            try:
+                producto = Producto.objects.get(id=detalle_data['producto'].id)
+            except Producto.DoesNotExist:
+                raise DRFValidationError(f"Producto con id {detalle_data['producto'].id} no existe.")
+
+            cantidad = detalle_data.get('cantidad')
+            precio_unitario = detalle_data.get('precio_unitario')
+
+            # Validaciones básicas
+            if cantidad is None or cantidad <= 0:
+                raise DRFValidationError(f"La cantidad para el producto '{producto.nombre}' debe ser mayor a cero.")
+            if precio_unitario is None or precio_unitario <= 0:
+                raise DRFValidationError(f"El precio unitario para el producto '{producto.nombre}' debe ser mayor a cero.")
+
+            inventario = Inventario.objects.select_for_update().filter(
+                producto=producto,
+                sucursal__empresa=empresa
+            ).first()
+
+            if not inventario:
+                raise DRFValidationError(
+                    f"No hay inventario disponible para el producto '{producto.nombre}'"
+                )
+            if inventario.cantidad < cantidad:
+                raise DRFValidationError(
+                    f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {inventario.cantidad}"
+                )
+
+            # Actualizar inventario con select_for_update para evitar race conditions
+            inventario.cantidad = F('cantidad') - cantidad
+            inventario.save()
+            inventario.refresh_from_db()
+
+            detalle = DetalleVenta(venta=venta, **detalle_data)
+            detalles.append(detalle)
+
+            total_calculado += cantidad * precio_unitario
+
+        DetalleVenta.objects.bulk_create(detalles)
+
+        venta.total = redondear_decimal(total_calculado)
+        venta.save(update_fields=['total'])
+
+        # Crear CuentaPorCobrar automáticamente
+        fecha_vencimiento = venta.fecha + timedelta(days=30)  # plazo 30 días
+        CuentaPorCobrar.objects.create(
+            empresa=empresa,
+            venta=venta,
+            monto=venta.total,
+            fecha_vencimiento=fecha_vencimiento,
+            estado='PENDIENTE'
+        )
+
+        try:
+            generar_asiento_para_venta(venta, usuario)
+        except Exception as e:
+            # Aquí puedes loggear el error o tomar alguna acción adicional
+            raise DRFValidationError(f"Error al generar asiento contable: {str(e)}")
+
+        return venta
+# from rest_framework import serializers
+# from ventas.models import Venta, DetalleVenta
+# from .detalle_venta_serializer import DetalleVentaSerializer
+# from inventario.models import Producto, Inventario
+# from contabilidad.models import AsientoContable, DetalleAsiento, CuentaContable
+# from django.db import transaction
+# from datetime import timedelta
+# from finanzas.models import CuentaPorCobrar
+# from decimal import Decimal, ROUND_HALF_UP
+# from contabilidad.helpers.asientos import generar_asiento_para_venta
+# from rest_framework.exceptions import ValidationError as DRFValidationError
+
+# def redondear_decimal(valor, decimales=2):
+#     if not isinstance(valor, Decimal):
+#         valor = Decimal(str(valor))
+#     return valor.quantize(Decimal('1.' + '0' * decimales), rounding=ROUND_HALF_UP)
+
+# class VentaSerializer(serializers.ModelSerializer):
+#     detalles = DetalleVentaSerializer(many=True)
+#     cliente_nombre = serializers.CharField(source='cliente.nombre', read_only=True)
+#     usuario_username = serializers.CharField(source='usuario.username', read_only=True)
+
+#     class Meta:
+#         model = Venta
+#         fields = [
+#             'id',
+#             'empresa',
+#             'cliente',
+#             'cliente_nombre',
+#             'usuario',
+#             'usuario_username',
+#             'fecha',
+#             'total',
+#             'estado',
+#             'detalles',
+#         ]
+#         read_only_fields = ['id', 'fecha', 'total']
+
+    
+
+#     @transaction.atomic
+#     def create(self, validated_data):
+#         detalles_data = validated_data.pop('detalles')
+
+#         request = self.context.get('request')
+#         usuario = request.user if request else None
+#         empresa = getattr(usuario, 'empresa', None)
+
+#         venta = Venta(**validated_data)
+#         venta.usuario = usuario
+#         venta.empresa = empresa
+#         venta.save()
+
+#         detalles = []
+#         total_calculado = 0
+
+#         for detalle_data in detalles_data:
+#             try:
+#                 producto = Producto.objects.get(id=detalle_data['producto'].id)
+#             except Producto.DoesNotExist:
+#                 raise DRFValidationError(f"Producto con id {detalle_data['producto'].id} no existe.")
+
+#             cantidad = detalle_data['cantidad']
+
+#             inventario = Inventario.objects.filter(
+#                 producto=producto,
+#                 sucursal__empresa=empresa
+#             ).first()
+
+#             if not inventario:
+#                 raise DRFValidationError(
+#                     f"No hay inventario disponible para el producto '{producto.nombre}'"
+#                 )
+#             if inventario.cantidad < cantidad:
+#                 raise DRFValidationError(
+#                     f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {inventario.cantidad}"
+#                 )
+#             inventario.cantidad -= cantidad
+#             inventario.save()
+
+#             detalle = DetalleVenta(venta=venta, **detalle_data)
+#             detalles.append(detalle)
+#             total_calculado += cantidad * detalle_data['precio_unitario']
+
+#         DetalleVenta.objects.bulk_create(detalles)
+
+#         venta.total = total_calculado
+#         venta.save(update_fields=['total'])
+
+#         # Crear CuentaPorCobrar automáticamente
+#         fecha_vencimiento = venta.fecha + timedelta(days=30)  # plazo 30 días
+#         CuentaPorCobrar.objects.create(
+#             empresa=empresa,
+#             venta=venta,
+#             monto=total_calculado,
+#             fecha_vencimiento=fecha_vencimiento,
+#             estado='PENDIENTE'
+#         )
+
+#         try:
+#             generar_asiento_para_venta(venta, usuario)
+#         except Exception as e:
+#             # Opcional: aquí podrías revertir la venta o loggear el error
+#             raise DRFValidationError(f"Error al generar asiento contable: {str(e)}")
+
+#         return venta
+
+
+
+
+
 # --- /home/runner/workspace/ventas/views/__init__.py ---
 from .clientes import ClienteViewSet
 from .ventas import VentaViewSet
 from .detallesventa import DetalleVentaViewSet
-
-
-# --- /home/runner/workspace/ventas/views/clientes.py ---
-# ventas/views/clientes.py
-from rest_framework import viewsets, permissions, filters
-from django_filters.rest_framework import DjangoFilterBackend
-from ventas.models import Cliente
-from ventas.serializers import ClienteSerializer
-from ventas.filters.clientes import ClienteFilter  # 👈 Filtro avanzado para Clientes
-from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsVendedor  # 👈 Permisos personalizados
-
-class ClienteViewSet(viewsets.ModelViewSet):
-    queryset = Cliente.objects.all().select_related('empresa')
-    serializer_class = ClienteSerializer
-    permission_classes = [permissions.IsAuthenticated & (IsSuperAdmin | IsEmpresaAdmin | IsVendedor)]
-    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
-    search_fields = ['nombre', 'rfc', 'correo', 'telefono']
-    filterset_class = ClienteFilter
-
-    def get_queryset(self):
-        user = self.request.user
-        if user.rol.nombre == "Superadministrador":
-            # Superadmin ve todos los clientes
-            return self.queryset
-        else:
-            # Los demás solo clientes de su empresa
-            return self.queryset.filter(empresa=user.empresa)
-
-
-
-# --- /home/runner/workspace/ventas/views/detallesventa.py ---
-
-
-
-from rest_framework import viewsets, permissions, filters
-from django_filters.rest_framework import DjangoFilterBackend
-from ventas.models import DetalleVenta
-from ventas.serializers import DetalleVentaSerializer
-from accounts.permissions import IsVendedor, IsEmpresaAdmin
-from rest_framework.pagination import PageNumberPagination
-import django_filters
-
-# Clase de paginación personalizada
-class DetalleVentaPagination(PageNumberPagination):
-    page_size = 10  # Número de resultados por página
-    page_size_query_param = 'page_size'
-    max_page_size = 100  # Máximo número de resultados por página
-
-# Filtro personalizado para Detalles de Venta
-class DetalleVentaFilter(django_filters.FilterSet):
-    # Filtro por fecha de la venta
-    fecha_inicio = django_filters.DateFilter(field_name='venta__fecha', lookup_expr='gte', label='Fecha desde')
-    fecha_fin = django_filters.DateFilter(field_name='venta__fecha', lookup_expr='lte', label='Fecha hasta')
-
-    class Meta:
-        model = DetalleVenta
-        fields = ['venta', 'producto', 'fecha_inicio', 'fecha_fin']
-
-class DetalleVentaViewSet(viewsets.ModelViewSet):
-    """
-    CRUD para Detalles de Venta
-    """
-    queryset = DetalleVenta.objects.all().select_related('venta', 'producto')
-    serializer_class = DetalleVentaSerializer
-    permission_classes = [permissions.IsAuthenticated & (IsVendedor | IsEmpresaAdmin)]
-    filter_backends = [filters.OrderingFilter, DjangoFilterBackend]
-    filterset_class = DetalleVentaFilter  # Filtro personalizado
-    pagination_class = DetalleVentaPagination  # Paginación personalizada
-
-    # Permitimos ordenar por cantidad y precio_unitario
-    ordering_fields = ['cantidad', 'precio_unitario']
-    ordering = ['-cantidad']  # Orden predeterminado por cantidad descendente
-
-    def get_queryset(self):
-        user = self.request.user
-        if user.rol.nombre == "Superadministrador":
-            return self.queryset
-        # Filtrar detalles solo de ventas pertenecientes a la empresa del usuario
-        return self.queryset.filter(venta__empresa=user.empresa)
-
-    def perform_create(self, serializer):
-        serializer.save(usuario=self.request.user)
-
-
-
-
-
-
-
-
-
-# from rest_framework import viewsets, permissions
-# from django_filters.rest_framework import DjangoFilterBackend
-# from ventas.models import DetalleVenta
-# from ventas.serializers import DetalleVentaSerializer
-# from accounts.permissions import IsVendedor, IsEmpresaAdmin
-
-# class DetalleVentaViewSet(viewsets.ModelViewSet):
-#     """
-#     CRUD para Detalles de Venta
-#     """
-#     queryset = DetalleVenta.objects.all().select_related('venta', 'producto')
-#     serializer_class = DetalleVentaSerializer
-#     permission_classes = [permissions.IsAuthenticated & (IsVendedor | IsEmpresaAdmin)]
-#     filter_backends = [DjangoFilterBackend]
-#     filterset_fields = ['venta', 'producto']
-
-#     def get_queryset(self):
-#         user = self.request.user
-#         if user.rol.nombre == "Superadministrador":
-#             return self.queryset
-#         # Filtrar detalles solo de ventas pertenecientes a la empresa del usuario
-#         return self.queryset.filter(venta__empresa=user.empresa)
-
-
-
-
-
-
-# from rest_framework import viewsets, permissions
-# from django_filters.rest_framework import DjangoFilterBackend
-# from ventas.models import DetalleVenta
-# from ventas.serializers import DetalleVentaSerializer
-# from accounts.permissions import IsVendedor, IsEmpresaAdmin
-
-# class DetalleVentaViewSet(viewsets.ModelViewSet):
-#     """
-#     CRUD para Detalles de Venta
-#     """
-#     queryset = DetalleVenta.objects.all().select_related('venta', 'producto')
-#     serializer_class = DetalleVentaSerializer
-#     permission_classes = [permissions.IsAuthenticated & (IsVendedor | IsEmpresaAdmin)]
-#     filter_backends = [DjangoFilterBackend]
-#     filterset_fields = ['venta', 'producto']
 
 
 # --- /home/runner/workspace/ventas/views/ventas.py ---
@@ -4702,6 +4889,112 @@ class VentaViewSet(viewsets.ModelViewSet):
 
 
 
+
+
+# --- /home/runner/workspace/ventas/views/detallesventa.py ---
+
+
+
+from rest_framework import viewsets, permissions, filters
+from django_filters.rest_framework import DjangoFilterBackend
+from ventas.models import DetalleVenta
+from ventas.serializers import DetalleVentaSerializer
+from accounts.permissions import IsVendedor, IsEmpresaAdmin
+from rest_framework.pagination import PageNumberPagination
+import django_filters
+
+# Clase de paginación personalizada
+class DetalleVentaPagination(PageNumberPagination):
+    page_size = 10  # Número de resultados por página
+    page_size_query_param = 'page_size'
+    max_page_size = 100  # Máximo número de resultados por página
+
+# Filtro personalizado para Detalles de Venta
+class DetalleVentaFilter(django_filters.FilterSet):
+    # Filtro por fecha de la venta
+    fecha_inicio = django_filters.DateFilter(field_name='venta__fecha', lookup_expr='gte', label='Fecha desde')
+    fecha_fin = django_filters.DateFilter(field_name='venta__fecha', lookup_expr='lte', label='Fecha hasta')
+
+    class Meta:
+        model = DetalleVenta
+        fields = ['venta', 'producto', 'fecha_inicio', 'fecha_fin']
+
+class DetalleVentaViewSet(viewsets.ModelViewSet):
+    """
+    CRUD para Detalles de Venta
+    """
+    queryset = DetalleVenta.objects.all().select_related('venta', 'producto')
+    serializer_class = DetalleVentaSerializer
+    permission_classes = [permissions.IsAuthenticated & (IsVendedor | IsEmpresaAdmin)]
+    filter_backends = [filters.OrderingFilter, DjangoFilterBackend]
+    filterset_class = DetalleVentaFilter  # Filtro personalizado
+    pagination_class = DetalleVentaPagination  # Paginación personalizada
+
+    # Permitimos ordenar por cantidad y precio_unitario
+    ordering_fields = ['cantidad', 'precio_unitario']
+    ordering = ['-cantidad']  # Orden predeterminado por cantidad descendente
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.rol.nombre == "Superadministrador":
+            return self.queryset
+        # Filtrar detalles solo de ventas pertenecientes a la empresa del usuario
+        return self.queryset.filter(venta__empresa=user.empresa)
+
+    def perform_create(self, serializer):
+        serializer.save(usuario=self.request.user)
+
+
+
+
+
+
+
+
+
+# from rest_framework import viewsets, permissions
+# from django_filters.rest_framework import DjangoFilterBackend
+# from ventas.models import DetalleVenta
+# from ventas.serializers import DetalleVentaSerializer
+# from accounts.permissions import IsVendedor, IsEmpresaAdmin
+
+# class DetalleVentaViewSet(viewsets.ModelViewSet):
+#     """
+#     CRUD para Detalles de Venta
+#     """
+#     queryset = DetalleVenta.objects.all().select_related('venta', 'producto')
+#     serializer_class = DetalleVentaSerializer
+#     permission_classes = [permissions.IsAuthenticated & (IsVendedor | IsEmpresaAdmin)]
+#     filter_backends = [DjangoFilterBackend]
+#     filterset_fields = ['venta', 'producto']
+
+#     def get_queryset(self):
+#         user = self.request.user
+#         if user.rol.nombre == "Superadministrador":
+#             return self.queryset
+#         # Filtrar detalles solo de ventas pertenecientes a la empresa del usuario
+#         return self.queryset.filter(venta__empresa=user.empresa)
+
+
+
+
+
+
+# from rest_framework import viewsets, permissions
+# from django_filters.rest_framework import DjangoFilterBackend
+# from ventas.models import DetalleVenta
+# from ventas.serializers import DetalleVentaSerializer
+# from accounts.permissions import IsVendedor, IsEmpresaAdmin
+
+# class DetalleVentaViewSet(viewsets.ModelViewSet):
+#     """
+#     CRUD para Detalles de Venta
+#     """
+#     queryset = DetalleVenta.objects.all().select_related('venta', 'producto')
+#     serializer_class = DetalleVentaSerializer
+#     permission_classes = [permissions.IsAuthenticated & (IsVendedor | IsEmpresaAdmin)]
+#     filter_backends = [DjangoFilterBackend]
+#     filterset_fields = ['venta', 'producto']
 
 
 # --- /home/runner/workspace/ventas/views/dashboard.py ---
@@ -5094,417 +5387,82 @@ class VentaDashboardAPIView(APIView):
 
 
 
-# --- /home/runner/workspace/ventas/filters/clientes.py ---
-# ventas/filters/clientes.py
-import django_filters
+# --- /home/runner/workspace/ventas/views/clientes.py ---
+# ventas/views/clientes.py
+from rest_framework import viewsets, permissions, filters
+from django_filters.rest_framework import DjangoFilterBackend
 from ventas.models import Cliente
-
-class ClienteFilter(django_filters.FilterSet):
-    nombre = django_filters.CharFilter(lookup_expr='icontains')
-    rfc = django_filters.CharFilter(lookup_expr='icontains')
-    correo = django_filters.CharFilter(lookup_expr='icontains')
-    telefono = django_filters.CharFilter(lookup_expr='icontains')
-    creado_en = django_filters.DateFromToRangeFilter()
-
-    class Meta:
-        model = Cliente
-        fields = ['empresa', 'nombre', 'rfc', 'correo', 'telefono', 'creado_en']
-
-
-
-# --- /home/runner/workspace/ventas/serializers/cliente_serializer.py ---
-from rest_framework import serializers
-from ventas.models import Cliente
-
-class ClienteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Cliente
-        fields = [
-            'id',
-            'empresa',
-            'nombre',
-            'rfc',
-            'correo',
-            'telefono',
-            'direccion',
-            'creado_en',
-            'actualizado_en',
-        ]
-        read_only_fields = ['id', 'creado_en', 'actualizado_en']
-
-
-
-# --- /home/runner/workspace/ventas/serializers/__init__.py ---
-from .cliente_serializer import ClienteSerializer
-from .detalle_venta_serializer import DetalleVentaSerializer
-from .venta_serializer import VentaSerializer
-
-
-# --- /home/runner/workspace/ventas/serializers/detalle_venta_serializer.py ---
-from rest_framework import serializers
-from ventas.models import DetalleVenta
-from inventario.models import Inventario
-
-class DetalleVentaSerializer(serializers.ModelSerializer):
-    producto_nombre = serializers.CharField(source='producto.nombre', read_only=True)
-    subtotal = serializers.SerializerMethodField()
-
-    class Meta:
-        model = DetalleVenta
-        fields = [
-            'id',
-            'producto',
-            'producto_nombre',
-            'cantidad',
-            'precio_unitario',
-            'subtotal',
-        ]
-
-    def get_subtotal(self, obj):
-        return obj.cantidad * obj.precio_unitario
-
-    def validate(self, data):
-        cantidad = data.get('cantidad')
-        precio_unitario = data.get('precio_unitario')
-        producto = data.get('producto')
-
-        if cantidad is None or cantidad <= 0:
-            raise serializers.ValidationError("La cantidad debe ser mayor a cero.")
-        if precio_unitario is None or precio_unitario <= 0:
-            raise serializers.ValidationError("El precio unitario debe ser mayor a cero.")
-        if producto is None:
-            raise serializers.ValidationError("El producto es obligatorio.")
-
-        # Obtener todos los inventarios asociados al producto
-        inventarios = Inventario.objects.filter(producto=producto)
-
-        # Sumar la cantidad disponible de los inventarios
-        stock_disponible = sum(inventario.cantidad for inventario in inventarios)
-
-        # Verificar si hay suficiente stock
-        if stock_disponible < cantidad:
-            raise serializers.ValidationError(
-                f"No hay suficiente stock para el producto '{producto.nombre}'. Stock disponible: {stock_disponible}"
-            )
-
-        return data
-
-
-
-# --- /home/runner/workspace/ventas/serializers/venta_serializer.py ---
-from rest_framework import serializers
-from ventas.models import Venta, DetalleVenta
-from .detalle_venta_serializer import DetalleVentaSerializer
-from inventario.models import Producto, Inventario
-from contabilidad.models import AsientoContable, DetalleAsiento, CuentaContable
-from django.db import transaction
-from datetime import timedelta
-from finanzas.models import CuentaPorCobrar
-from decimal import Decimal, ROUND_HALF_UP
-
-def redondear_decimal(valor, decimales=2):
-    if not isinstance(valor, Decimal):
-        valor = Decimal(str(valor))
-    return valor.quantize(Decimal('1.' + '0' * decimales), rounding=ROUND_HALF_UP)
-
-class VentaSerializer(serializers.ModelSerializer):
-    detalles = DetalleVentaSerializer(many=True)
-    cliente_nombre = serializers.CharField(source='cliente.nombre', read_only=True)
-    usuario_username = serializers.CharField(source='usuario.username', read_only=True)
-
-    class Meta:
-        model = Venta
-        fields = [
-            'id',
-            'empresa',
-            'cliente',
-            'cliente_nombre',
-            'usuario',
-            'usuario_username',
-            'fecha',
-            'total',
-            'estado',
-            'detalles',
-        ]
-        read_only_fields = ['id', 'fecha', 'total']
-
-    
-
-    @transaction.atomic
-    def create(self, validated_data):
-        detalles_data = validated_data.pop('detalles')
-
-        request = self.context.get('request')
-        usuario = request.user if request else None
-        empresa = getattr(usuario, 'empresa', None)
-
-        venta = Venta(**validated_data)
-        venta.usuario = usuario
-        venta.empresa = empresa
-        venta.save()
-
-        detalles = []
-        total_calculado = 0
-
-        for detalle_data in detalles_data:
-            producto = Producto.objects.get(id=detalle_data['producto'].id)
-            cantidad = detalle_data['cantidad']
-
-            inventario = Inventario.objects.filter(
-                producto=producto,
-                sucursal__empresa=empresa
-            ).first()
-
-            if not inventario:
-                raise serializers.ValidationError(
-                    f"No hay inventario disponible para el producto '{producto.nombre}'"
-                )
-            if inventario.cantidad < cantidad:
-                raise serializers.ValidationError(
-                    f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {inventario.cantidad}"
-                )
-            inventario.cantidad -= cantidad
-            inventario.save()
-
-            detalle = DetalleVenta(venta=venta, **detalle_data)
-            detalles.append(detalle)
-            total_calculado += cantidad * detalle_data['precio_unitario']
-
-        DetalleVenta.objects.bulk_create(detalles)
-
-        venta.total = total_calculado
-        venta.save(update_fields=['total'])
-
-        # Crear CuentaPorCobrar automáticamente
-        fecha_vencimiento = venta.fecha + timedelta(days=30)  # plazo 30 días
-        CuentaPorCobrar.objects.create(
-            empresa=empresa,
-            venta=venta,
-            monto=total_calculado,
-            fecha_vencimiento=fecha_vencimiento,
-            estado='PENDIENTE'
-        )
-
-        # Crear asiento contable automático para la venta
-        crear_asiento_venta(venta, usuario)
-
-        return venta
-
-
-def crear_asiento_venta(venta, usuario):
-    """
-    Registra el asiento contable automático para una venta.
-    """
-    empresa = venta.empresa
-
-    # Obtener las cuentas contables según el plan contable
-    cuenta_clientes = CuentaContable.objects.get(codigo='1050', empresa=empresa)  # Clientes por cobrar
-    cuenta_ingresos = CuentaContable.objects.get(codigo='4010', empresa=empresa)  # Ingresos por ventas
-    # Aquí si manejas IVA, deberías agregar la cuenta de IVA por pagar (no la pusiste en el listado)
-
-    asiento = AsientoContable.objects.create(
-        empresa=empresa,
-        fecha=venta.fecha,
-        concepto=f"Venta #{venta.id} a {venta.cliente.nombre}",
-        usuario=usuario,
-        referencia_id=venta.id,
-        referencia_tipo='Venta',
-        es_automatico=True,
-    )
-
-    total_redondeado = redondear_decimal(venta.total)
-
-    DetalleAsiento.objects.create(
-        asiento=asiento,
-        cuenta_contable=cuenta_clientes,
-        debe=total_redondeado,
-        haber=Decimal('0.00'),
-        descripcion="Registro de venta - Clientes por cobrar"
-    )
-    DetalleAsiento.objects.create(
-        asiento=asiento,
-        cuenta_contable=cuenta_ingresos,
-        debe=Decimal('0.00'),
-        haber=total_redondeado,
-        descripcion="Registro de venta - Ingresos por ventas"
-    )
-
-    asiento.actualizar_totales()
-
-# from rest_framework import serializers
-# from django.db import transaction
-# from ventas.models import Venta, DetalleVenta
-# from inventario.models import Producto, Inventario
-# from ventas.serializers.detalle_venta_serializer import DetalleVentaSerializer
-# from datetime import timedelta
-# from finanzas.models import CuentaPorCobrar
-
-# class VentaSerializer(serializers.ModelSerializer):
-#     detalles = DetalleVentaSerializer(many=True)
-#     cliente_nombre = serializers.CharField(source='cliente.nombre', read_only=True)
-#     usuario_username = serializers.CharField(source='usuario.username', read_only=True)
-
-#     class Meta:
-#         model = Venta
-#         fields = [
-#             'id',
-#             'empresa',
-#             'cliente',
-#             'cliente_nombre',
-#             'usuario',
-#             'usuario_username',
-#             'fecha',
-#             'total',
-#             'estado',
-#             'detalles',
-#         ]
-#         read_only_fields = ['id', 'fecha', 'total']
-
-#     @transaction.atomic
-#     def create(self, validated_data):
-#         detalles_data = validated_data.pop('detalles')
-
-#         request = self.context.get('request')
-#         usuario = request.user if request else None
-#         empresa = getattr(usuario, 'empresa', None)
-
-#         venta = Venta(**validated_data)
-#         venta.usuario = usuario
-#         venta.empresa = empresa
-#         venta.save()
-
-#         detalles = []
-#         total_calculado = 0
-
-#         for detalle_data in detalles_data:
-#             producto = Producto.objects.get(id=detalle_data['producto'].id)
-#             cantidad = detalle_data['cantidad']
-
-#             inventario = Inventario.objects.filter(
-#                 producto=producto,
-#                 sucursal__empresa=empresa
-#             ).first()
-
-#             if not inventario:
-#                 raise serializers.ValidationError(
-#                     f"No hay inventario disponible para el producto '{producto.nombre}'"
-#                 )
-#             if inventario.cantidad < cantidad:
-#                 raise serializers.ValidationError(
-#                     f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {inventario.cantidad}"
-#                 )
-#             inventario.cantidad -= cantidad
-#             inventario.save()
-
-#             detalle = DetalleVenta(venta=venta, **detalle_data)
-#             detalles.append(detalle)
-#             total_calculado += cantidad * detalle_data['precio_unitario']
-
-#         DetalleVenta.objects.bulk_create(detalles)
-
-#         venta.total = total_calculado
-#         venta.save(update_fields=['total'])
-
-#         # Crear CuentaPorCobrar automáticamente
-#         fecha_vencimiento = venta.fecha + timedelta(days=30)  # plazo 30 días
-#         CuentaPorCobrar.objects.create(
-#             empresa=empresa,
-#             venta=venta,
-#             monto=total_calculado,
-#             fecha_vencimiento=fecha_vencimiento,
-#             estado='PENDIENTE'
-#         )
-
-#         return venta
-
-# # class VentaSerializer(serializers.ModelSerializer):
-# #     detalles = DetalleVentaSerializer(many=True)
-# #     cliente_nombre = serializers.CharField(source='cliente.nombre', read_only=True)
-# #     usuario_username = serializers.CharField(source='usuario.username', read_only=True)
-
-# #     class Meta:
-# #         model = Venta
-# #         fields = [
-# #             'id',
-# #             'empresa',
-# #             'cliente',
-# #             'cliente_nombre',
-# #             'usuario',
-# #             'usuario_username',
-# #             'fecha',
-# #             'total',
-# #             'estado',
-# #             'detalles',
-# #         ]
-# #         read_only_fields = ['id', 'fecha', 'total']
-
-# #     @transaction.atomic
-# #     def create(self, validated_data):
-# #         detalles_data = validated_data.pop('detalles')
-
-# #         # Crear la venta pero aún no la guardamos
-# #         venta = Venta(**validated_data)
-
-# #         # Guardar la venta inicialmente con total=0 para obtener su ID
-# #         venta.save()
-
-# #         # Ahora que la venta tiene un ID, procesamos los detalles
-# #         detalles = []
-# #         total_calculado = 0
-        
-# #         for detalle_data in detalles_data:
-# #             producto = Producto.objects.get(id=detalle_data['producto'].id)
-# #             cantidad = detalle_data['cantidad']
-
-# #             # Obtener el inventario del producto para la empresa del usuario
-# #             from inventario.models import Inventario
-# #             try:
-# #                 # Buscar inventario del producto en cualquier sucursal de la empresa
-# #                 inventario = Inventario.objects.filter(
-# #                     producto=producto,
-# #                     sucursal__empresa=validated_data['empresa']
-# #                 ).first()
-                
-# #                 if not inventario:
-# #                     raise serializers.ValidationError(
-# #                         f"No hay inventario disponible para el producto '{producto.nombre}'"
-# #                     )
-                
-# #                 # Verificar si hay suficiente stock
-# #                 if inventario.cantidad < cantidad:
-# #                     raise serializers.ValidationError(
-# #                         f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {inventario.cantidad}"
-# #                     )
-
-# #                 # Reducir el stock del inventario
-# #                 inventario.cantidad -= cantidad
-# #                 inventario.save()
-                
-# #             except Inventario.DoesNotExist:
-# #                 raise serializers.ValidationError(
-# #                     f"No hay inventario disponible para el producto '{producto.nombre}'"
-# #                 )
-
-# #             # Crear los detalles de la venta
-# #             detalle = DetalleVenta(
-# #                 venta=venta,
-# #                 **detalle_data
-# #             )
-# #             detalles.append(detalle)
-            
-# #             # Calcular el subtotal y agregarlo al total
-# #             total_calculado += detalle_data['cantidad'] * detalle_data['precio_unitario']
-
-# #         # Guardar todos los detalles de la venta
-# #         DetalleVenta.objects.bulk_create(detalles)
-
-# #         # Actualizar el total de la venta directamente
-# #         venta.total = total_calculado
-# #         venta.save(update_fields=['total'])
-
-# #         return venta
-
-
+from ventas.serializers import ClienteSerializer
+from ventas.filters.clientes import ClienteFilter  # 👈 Filtro avanzado para Clientes
+from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsVendedor  # 👈 Permisos personalizados
+
+class ClienteViewSet(viewsets.ModelViewSet):
+    queryset = Cliente.objects.all().select_related('empresa')
+    serializer_class = ClienteSerializer
+    permission_classes = [permissions.IsAuthenticated & (IsSuperAdmin | IsEmpresaAdmin | IsVendedor)]
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    search_fields = ['nombre', 'rfc', 'correo', 'telefono']
+    filterset_class = ClienteFilter
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.rol.nombre == "Superadministrador":
+            # Superadmin ve todos los clientes
+            return self.queryset
+        else:
+            # Los demás solo clientes de su empresa
+            return self.queryset.filter(empresa=user.empresa)
+
+
+
+# --- /home/runner/workspace/ventas/views/facturar_venta.py ---
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from ventas.models import Venta
+from facturacion.models import ComprobanteFiscal  # Importa el modelo
+from facturacion.services.procesar import procesar_timbrado_venta
+
+class FacturarVentaAPIView(APIView):
+    def get(self, request, id):
+        try:
+            venta = Venta.objects.get(pk=id)
+        except Venta.DoesNotExist:
+            return Response({'error': 'Venta no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Verificar si ya existe un comprobante para esta venta
+        comprobante_existente = ComprobanteFiscal.objects.filter(venta=venta).first()
+
+        if comprobante_existente:
+            # Ya existe un comprobante, devolver info sin crear uno nuevo
+            if comprobante_existente.estado == "TIMBRADO":
+                return Response({
+                    "message": "Factura ya generada anteriormente",
+                    "uuid": comprobante_existente.uuid,
+                    "venta": venta.id,
+                    "comprobante_id": comprobante_existente.id
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    "message": "Comprobante existente con error",
+                    "error": comprobante_existente.error_mensaje
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        # No existe comprobante, proceder a timbrar y crear uno nuevo
+        comprobante = procesar_timbrado_venta(venta)
+
+        if comprobante.estado == "TIMBRADO":
+            return Response({
+                "message": "Factura generada correctamente",
+                "uuid": comprobante.uuid,
+                "venta": venta.id,
+                "comprobante_id": comprobante.id
+            }, status=status.HTTP_200_OK) 
+        else:
+            return Response({
+                "message": "Error al timbrar",
+                "error": comprobante.error_mensaje
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 
@@ -6061,7 +6019,7 @@ from inventario.models import Inventario, MovimientoInventario
 from compras.models import Compra, DetalleCompra
 from datetime import datetime
 from compras.filters import CompraFilter  # Importa el filtro
-
+from contabilidad.helpers.asientos import generar_asiento_para_compra
 import django_filters  # Asegúrate de que esta línea esté presente
 
 
@@ -6253,7 +6211,14 @@ class CompraViewSet(viewsets.ModelViewSet):
         empresa = usuario.empresa
         if not getattr(usuario, 'sucursal_actual', None):
             raise serializers.ValidationError("El usuario no tiene una sucursal asignada.")
-        serializer.save(empresa=empresa, usuario=usuario)
+
+        try:
+            with transaction.atomic():
+                compra = serializer.save(empresa=empresa, usuario=usuario)
+                # Generar asiento contable
+                asiento = generar_asiento_para_compra(compra, usuario)
+        except Exception as e:
+            raise serializers.ValidationError(f"Error al generar asiento contable: {str(e)}")
 
 
 
@@ -9390,6 +9355,132 @@ def test_balance_sheet_report(setup_contabilidad):
 
 
 
+# --- /home/runner/workspace/contabilidad/helpers/asientos.py ---
+from decimal import Decimal
+from django.db import transaction
+from contabilidad.models import AsientoContable, DetalleAsiento, CuentaContable
+from decimal import Decimal, ROUND_HALF_UP
+
+def redondear_decimal(valor, decimales=2):
+    if not isinstance(valor, Decimal):
+        valor = Decimal(str(valor))
+    return valor.quantize(Decimal('1.' + '0' * decimales), rounding=ROUND_HALF_UP)
+
+def generar_asiento_para_venta(venta, usuario):
+    empresa = venta.empresa
+
+    # Obtener cuentas contables necesarias
+    cuenta_clientes = CuentaContable.objects.get(codigo='1050', empresa=empresa)  # Clientes por cobrar
+    cuenta_ingresos = CuentaContable.objects.get(codigo='4010', empresa=empresa)  # Ingresos por ventas
+    cuenta_iva = CuentaContable.objects.get(codigo='2080', empresa=empresa)       # IVA por pagar
+
+    # Cálculo del total e IVA
+    total = redondear_decimal(venta.total)
+    iva_tasa = Decimal("0.16")
+    base = redondear_decimal(total / (1 + iva_tasa))
+    iva = redondear_decimal(total - base)
+
+    with transaction.atomic():
+        asiento = AsientoContable.objects.create(
+            empresa=empresa,
+            fecha=venta.fecha,
+            concepto=f"Venta #{venta.id} a {venta.cliente.nombre}",
+            usuario=usuario,
+            referencia_id=venta.id,
+            referencia_tipo='Venta',
+            es_automatico=True,
+        )
+
+        # DEBE: Cliente por cobrar (total completo)
+        DetalleAsiento.objects.create(
+            asiento=asiento,
+            cuenta_contable=cuenta_clientes,
+            debe=total,
+            haber=Decimal('0.00'),
+            descripcion="Venta - Cliente por cobrar"
+        )
+
+        # HABER: Ingresos (base sin IVA)
+        DetalleAsiento.objects.create(
+            asiento=asiento,
+            cuenta_contable=cuenta_ingresos,
+            debe=Decimal('0.00'),
+            haber=base,
+            descripcion="Venta - Ingresos"
+        )
+
+        # HABER: IVA por pagar
+        DetalleAsiento.objects.create(
+            asiento=asiento,
+            cuenta_contable=cuenta_iva,
+            debe=Decimal('0.00'),
+            haber=iva,
+            descripcion="Venta - IVA por pagar"
+        )
+
+        asiento.actualizar_totales()
+        venta.asiento_contable = asiento
+        venta.save()
+        return asiento
+
+def generar_asiento_para_compra(compra, usuario):
+    empresa = compra.empresa
+
+    # Obtener cuentas contables necesarias
+    cuenta_costo = CuentaContable.objects.get(codigo='5010', empresa=empresa)   # Costo de ventas
+    cuenta_iva_acreditar = CuentaContable.objects.get(codigo='1180', empresa=empresa)  # IVA por acreditar
+    cuenta_proveedores = CuentaContable.objects.get(codigo='2010', empresa=empresa)  # Proveedores por pagar
+
+    # Cálculo del total e IVA
+    total = redondear_decimal(compra.total)
+    iva_tasa = Decimal("0.16")
+    base = redondear_decimal(total / (1 + iva_tasa))
+    iva = redondear_decimal(total - base)
+
+    with transaction.atomic():
+        asiento = AsientoContable.objects.create(
+            empresa=empresa,
+            fecha=compra.fecha,
+            concepto=f"Compra #{compra.id} de {compra.proveedor.nombre}",
+            usuario=usuario,
+            referencia_id=compra.id,
+            referencia_tipo='Compra',
+            es_automatico=True,
+        )
+
+        # DEBE: Costo de ventas (base sin IVA)
+        DetalleAsiento.objects.create(
+            asiento=asiento,
+            cuenta_contable=cuenta_costo,
+            debe=base,
+            haber=Decimal('0.00'),
+            descripcion="Compra - Costo de ventas"
+        )
+
+        # DEBE: IVA por acreditar
+        DetalleAsiento.objects.create(
+            asiento=asiento,
+            cuenta_contable=cuenta_iva_acreditar,
+            debe=iva,
+            haber=Decimal('0.00'),
+            descripcion="Compra - IVA por acreditar"
+        )
+
+        # HABER: Proveedores por pagar (total completo)
+        DetalleAsiento.objects.create(
+            asiento=asiento,
+            cuenta_contable=cuenta_proveedores,
+            debe=Decimal('0.00'),
+            haber=total,
+            descripcion="Compra - Proveedores por pagar"
+        )
+
+        asiento.actualizar_totales()
+        compra.asiento_contable = asiento
+        compra.save()
+        return asiento
+
+
 
 
 # === Archivo: rrhh_combined.py ===
@@ -10127,6 +10218,545 @@ router.register(r'auth', AuthViewSet, basename='auth')
 urlpatterns = [
     path('', include(router.urls)),
 ]
+
+
+
+
+# === Archivo: facturacion_combined.py ===
+
+# --- /home/runner/workspace/facturacion/__init__.py ---
+
+
+
+# --- /home/runner/workspace/facturacion/admin.py ---
+from django.contrib import admin
+
+# Register your models here.
+
+
+
+# --- /home/runner/workspace/facturacion/apps.py ---
+from django.apps import AppConfig
+
+
+class FacturacionConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'facturacion'
+
+
+
+# --- /home/runner/workspace/facturacion/tests.py ---
+from django.test import TestCase
+
+# Create your tests here.
+
+
+
+# --- /home/runner/workspace/facturacion/views.py ---
+from django.shortcuts import render
+
+# Create your views here.
+
+
+
+# --- /home/runner/workspace/facturacion/urls.py ---
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from facturacion.views.comprobantes import ComprobanteFiscalViewSet
+
+router = DefaultRouter()
+router.register(r'comprobantes', ComprobanteFiscalViewSet, basename='comprobante')
+
+urlpatterns = [
+    path('', include(router.urls)),
+]
+
+
+
+# --- /home/runner/workspace/facturacion/models.py ---
+from django.db import models
+from core.models import Empresa
+from ventas.models import Venta
+from accounts.models import Usuario
+
+class ComprobanteFiscal(models.Model):
+    ESTADOS = [
+        ('PENDIENTE', 'Pendiente'),
+        ('TIMBRADO', 'Timbrado'),
+        ('CANCELADO', 'Cancelado'),
+        ('ERROR', 'Error'),
+    ]
+
+    TIPOS_COMPROBANTE = [
+        ('FACTURA', 'Factura'),
+        ('NOTA_CREDITO', 'Nota de Crédito'),
+        ('RECIBO_NOMINA', 'Recibo de Nómina'),
+        # Otros tipos CFDI
+    ]
+  
+
+
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
+    venta = models.OneToOneField(Venta, on_delete=models.CASCADE)
+    uuid = models.CharField(max_length=36, unique=True, blank=True, null=True)  # UUID timbrado
+    # xml = models.TextField(blank=True, null=True)  # XML CFDI completo
+    xml = models.FileField(upload_to="cfdi_xmls/", null=True, blank=True)
+    pdf = models.FileField(upload_to='cfdi_pdfs/', blank=True, null=True)  # PDF factura
+    fecha_timbrado = models.DateTimeField(blank=True, null=True)
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='PENDIENTE')  
+    error_mensaje = models.TextField(blank=True, null=True)
+    tipo = models.CharField(max_length=20, choices=TIPOS_COMPROBANTE, default='FACTURA')
+    serie = models.CharField(max_length=10, blank=True, null=True)
+    folio = models.PositiveIntegerField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def esta_timbrado(self):
+        return self.estado == 'TIMBRADO' and self.uuid is not None
+
+    class Meta:
+      indexes = [
+          models.Index(fields=['estado']),
+          models.Index(fields=['tipo']),
+      ]
+
+  
+    def __str__(self):
+      venta_id = self.venta.id if self.venta else 'N/A'
+      return f"{self.get_tipo_display()} {self.uuid or 'Sin UUID'} - Venta {venta_id}"
+
+
+
+# --- /home/runner/workspace/facturacion/migrations/__init__.py ---
+
+
+
+# --- /home/runner/workspace/facturacion/migrations/0001_initial.py ---
+# Generated by Django 5.2.4 on 2025-07-22 21:31
+
+import django.db.models.deletion
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+        ('core', '0002_empresa_razon_social'),
+        ('ventas', '0001_initial'),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='ComprobanteFiscal',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('uuid', models.CharField(blank=True, max_length=36, null=True, unique=True)),
+                ('xml', models.TextField(blank=True, null=True)),
+                ('pdf', models.FileField(blank=True, null=True, upload_to='cfdi_pdfs/')),
+                ('fecha_timbrado', models.DateTimeField(blank=True, null=True)),
+                ('estado', models.CharField(choices=[('PENDIENTE', 'Pendiente'), ('TIMBRADO', 'Timbrado'), ('CANCELADO', 'Cancelado'), ('ERROR', 'Error')], default='PENDIENTE', max_length=20)),
+                ('error_mensaje', models.TextField(blank=True, null=True)),
+                ('tipo', models.CharField(choices=[('FACTURA', 'Factura'), ('NOTA_CREDITO', 'Nota de Crédito'), ('RECIBO_NOMINA', 'Recibo de Nómina')], default='FACTURA', max_length=20)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('empresa', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='core.empresa')),
+                ('venta', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to='ventas.venta')),
+            ],
+            options={
+                'indexes': [models.Index(fields=['estado'], name='facturacion_estado_4c1711_idx'), models.Index(fields=['tipo'], name='facturacion_tipo_904fe7_idx')],
+            },
+        ),
+    ]
+
+
+
+# --- /home/runner/workspace/facturacion/migrations/0002_comprobantefiscal_folio_comprobantefiscal_serie.py ---
+# Generated by Django 5.2.4 on 2025-07-23 18:55
+
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('facturacion', '0001_initial'),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name='comprobantefiscal',
+            name='folio',
+            field=models.CharField(blank=True, max_length=20, null=True),
+        ),
+        migrations.AddField(
+            model_name='comprobantefiscal',
+            name='serie',
+            field=models.CharField(blank=True, max_length=10, null=True),
+        ),
+    ]
+
+
+
+# --- /home/runner/workspace/facturacion/migrations/0003_alter_comprobantefiscal_folio.py ---
+# Generated by Django 5.2.4 on 2025-07-23 19:01
+
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('facturacion', '0002_comprobantefiscal_folio_comprobantefiscal_serie'),
+    ]
+
+    operations = [
+        migrations.AlterField(
+            model_name='comprobantefiscal',
+            name='folio',
+            field=models.PositiveIntegerField(blank=True, null=True),
+        ),
+    ]
+
+
+
+# --- /home/runner/workspace/facturacion/serializers/comprobantes.py ---
+from rest_framework import serializers
+from facturacion.models import ComprobanteFiscal
+
+class ComprobanteFiscalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ComprobanteFiscal
+        fields = '__all__'
+        read_only_fields = [
+            'uuid', 'xml', 'pdf', 'fecha_timbrado',
+            'estado', 'error_mensaje', 'created_at', 'updated_at'
+        ]
+
+
+
+# --- /home/runner/workspace/facturacion/serializers/__init__.py ---
+
+
+
+# --- /home/runner/workspace/facturacion/views/__init__.py ---
+
+
+
+# --- /home/runner/workspace/facturacion/views/comprobantes.py ---
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from facturacion.models import ComprobanteFiscal
+from facturacion.serializers.comprobantes import ComprobanteFiscalSerializer
+from facturacion.services.timbrado import timbrar_comprobante
+
+
+
+class ComprobanteFiscalViewSet(viewsets.ModelViewSet):
+    queryset = ComprobanteFiscal.objects.all()
+    serializer_class = ComprobanteFiscalSerializer
+
+    @action(detail=True, methods=['post'])
+    def timbrar(self, request, pk=None):
+        comprobante = self.get_object()
+        if comprobante.estado == 'TIMBRADO':
+            return Response({"detail": "Comprobante ya timbrado."}, status=status.HTTP_400_BAD_REQUEST)
+
+        comprobante = timbrar_comprobante(comprobante)
+        serializer = self.get_serializer(comprobante)
+        return Response(serializer.data)
+
+
+# --- /home/runner/workspace/facturacion/helpers/__init__.py ---
+
+
+
+# --- /home/runner/workspace/facturacion/helpers/timbrar_cfdi_venta.py ---
+from facturacion.models import ComprobanteFiscal
+from facturacion.helpers.facturama import timbrar_cfdi_venta
+
+
+def procesar_timbrado_venta(venta):
+    """
+    Timbra una venta usando Facturama y crea el ComprobanteFiscal en DB.
+    """
+    try:
+        cfdi = timbrar_cfdi_venta(venta)
+
+        if "error" in cfdi:
+            return ComprobanteFiscal.objects.create(
+                empresa=venta.empresa,
+                venta=venta,
+                estado="ERROR",
+                error_mensaje=cfdi["error"],
+            )
+
+        comprobante = ComprobanteFiscal.objects.create(
+            empresa=venta.empresa,
+            venta=venta,
+            uuid=cfdi["Complement"]["TimbreFiscalDigital"]["Uuid"],
+            xml=cfdi.get("Xml"),
+            pdf=cfdi.get("Pdf"),
+            serie=cfdi.get("Serie", "A"),
+            folio=int(cfdi.get("Folio", 0)),
+            estado="TIMBRADO",
+            fecha_timbrado=cfdi.get("FechaTimbrado"),
+        )
+        return comprobante
+
+    except Exception as e:
+        return ComprobanteFiscal.objects.create(
+            empresa=venta.empresa,
+            venta=venta,
+            estado="ERROR",
+            error_mensaje=str(e),
+        )
+
+
+
+# --- /home/runner/workspace/facturacion/helpers/facturama.py ---
+import requests
+import base64
+from django.conf import settings
+
+FACTURAMA_BASE_URL = "https://apisandbox.facturama.mx"
+
+def timbrar_cfdi_venta(venta):
+    """
+    Envía la venta a Facturama para timbrar y devuelve la respuesta JSON.
+    """
+    # Autenticación básica
+    user_pass = f"{settings.FACTURAMA_USER}:{settings.FACTURAMA_PASSWORD}"
+    token = base64.b64encode(user_pass.encode()).decode()
+    headers = {
+        "Authorization": f"Basic {token}",
+        "Content-Type": "application/json"
+    }
+
+    # Construir JSON dinámico usando datos reales de la venta
+    cfdi_data = {
+        "Serie": "A",
+        "Folio": str(venta.id),  # Puedes ajustar lógica de folio si quieres
+        "CfdiType": "I",
+        "ExpeditionPlace": venta.empresa.codigo_postal or "00000",
+        "PaymentConditions": "Contado",
+        "PaymentMethod": venta.metodo_pago or "PUE",
+        "PaymentForm": venta.forma_pago or "01",
+        "Currency": "MXN",
+        "Exportation": "01",
+        "Issuer": {
+            "FiscalRegime": venta.empresa.regimen_fiscal_codigo,
+            "Rfc": venta.empresa.rfc,
+            "Name": venta.empresa.nombre
+        },
+        "Receiver": {
+            "Rfc": venta.cliente.rfc,
+            "Name": venta.cliente.nombre,
+            "CfdiUse": venta.uso_cfdi,
+            "TaxZipCode": getattr(venta.cliente, 'codigo_postal', "00000"),
+            "FiscalRegime": getattr(venta.cliente, 'regimen_fiscal_codigo', "601")
+        },
+        "Items": []
+    }
+
+    for detalle in venta.detalleventa_set.all():
+        item = {
+            "ProductCode": detalle.producto.clave_producto or "01010101",
+            "IdentificationNumber": detalle.lote or "001",
+            "Description": detalle.producto.nombre,
+            "Unit": detalle.producto.unidad or "ACT",
+            "UnitCode": detalle.producto.clave_unidad or "ACT",
+            "UnitPrice": float(detalle.precio_unitario),
+            "Quantity": float(detalle.cantidad),
+            "Subtotal": float(detalle.importe),
+            "Discount": 0.0,
+            "Total": round(detalle.importe * 1.16, 2),  # IVA 16%
+            "TaxObject": "02",
+            "Taxes": [
+                {
+                    "Total": round(detalle.importe * 0.16, 2),
+                    "Name": "IVA",
+                    "Base": float(detalle.importe),
+                    "Rate": 0.16,
+                    "Type": "Traslado",
+                    "IsRetention": False
+                }
+            ]
+        }
+        cfdi_data["Items"].append(item)
+
+    try:
+        response = requests.post(
+            f"{FACTURAMA_BASE_URL}/3/cfdis",
+            json=cfdi_data,
+            headers=headers
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        return {
+            "error": str(e),
+            "detalle": e.response.text if e.response else "No hay respuesta del servidor"
+        }
+
+
+# --- /home/runner/workspace/facturacion/services/procesar.py ---
+from facturacion.models import ComprobanteFiscal
+from facturacion.helpers.facturama import timbrar_cfdi_venta
+
+def procesar_timbrado_venta(venta):
+    try:
+        cfdi = timbrar_cfdi_venta(venta)
+
+        if "error" in cfdi:
+            return ComprobanteFiscal.objects.create(
+                empresa=venta.empresa,
+                venta=venta,
+                estado="ERROR",
+                error_mensaje=cfdi["error"],
+            )
+
+        comprobante = ComprobanteFiscal.objects.create(
+            empresa=venta.empresa,
+            venta=venta,
+            uuid=cfdi["Complement"]["TimbreFiscalDigital"]["Uuid"],
+            xml=cfdi.get("Xml"),
+            pdf=cfdi.get("Pdf"),
+            serie=cfdi.get("Serie", "A"),
+            folio=int(cfdi.get("Folio", 0)),
+            estado="TIMBRADO",
+            fecha_timbrado=cfdi.get("FechaTimbrado"),
+        )
+        return comprobante
+
+    except Exception as e:
+        return ComprobanteFiscal.objects.create(
+            empresa=venta.empresa,
+            venta=venta,
+            estado="ERROR",
+            error_mensaje=str(e),
+        )
+
+
+
+
+# --- /home/runner/workspace/facturacion/services/timbrado.py ---
+# facturacion/services/timbrado.py
+import datetime
+import base64
+from django.core.files.base import ContentFile
+from facturacion.models import ComprobanteFiscal
+from lxml import etree
+from datetime import datetime
+import requests
+from xml.sax.saxutils import escape
+from facturacion.utils.sat_firma import firmar_cadena, generar_cadena_original, cargar_certificado_base64
+# from facturacion.helpers.facturama import timbrar_cfdi_emision
+from facturacion.helpers.facturama import timbrar_cfdi_venta
+from facturacion.models import ComprobanteFiscal
+
+def validar_xml(xml_str: str, xsd_path: str):
+    xml_doc = etree.fromstring(xml_str.encode('utf-8'))
+    with open(xsd_path, 'rb') as f:
+        schema_doc = etree.parse(f)
+    schema = etree.XMLSchema(schema_doc)
+    if not schema.validate(xml_doc):
+        errores = [str(e) for e in schema.error_log]
+        raise ValueError(f"Errores de validación XML: {errores}")
+
+
+
+
+def guardar_xml_como_archivo(comprobante, contenido_xml: str):
+    comprobante.xml.save(f"factura_{comprobante.id}.xml", ContentFile(contenido_xml.encode('utf-8')))
+
+
+
+def enviar_a_pac(xml: str, token_api: str) -> dict:
+    headers = {
+        'Authorization': f'Bearer {token_api}',
+        'Content-Type': 'application/xml'
+    }
+    response = requests.post('https://api.pac.example/timbrar', headers=headers, data=xml.encodea('utf-8'))
+    if response.status_code == 200:
+        return response.json()
+    else:
+        try:
+            error_json = response.json()
+        except Exception:
+            error_json = {"detalle": response.text}
+        raise Exception(f"Error PAC: {error_json}")
+    
+
+def guardar_pdf_base64(comprobante: ComprobanteFiscal, pdf_base64: str):
+    """
+    Decodifica el PDF y lo guarda como archivo en el modelo.
+    """
+    if pdf_base64:
+        pdf_bytes = base64.b64decode(pdf_base64)
+        comprobante.pdf.save(f"factura_{comprobante.id}.pdf",
+                             ContentFile(pdf_bytes))
+
+def generar_folio_siguiente(serie="A"):
+    ultimo = ComprobanteFiscal.objects.filter(serie=serie).order_by("-folio").first()
+    return (ultimo.folio + 1) if ultimo and ultimo.folio else 1
+
+
+def timbrar_comprobante(comprobante):
+    """
+    Timbra un comprobante fiscal usando Facturama.
+    """
+    resultado = timbrar_cfdi_venta()
+
+    if "error" in resultado:
+        comprobante.estado = "ERROR"
+        comprobante.mensaje_error = resultado["error"]
+        comprobante.save()
+    else:
+        comprobante.estado = "TIMBRADO"
+        comprobante.uuid = resultado.get("Complement", {}).get("TimbreFiscalDigital", {}).get("Uuid")
+        comprobante.xml_timbrado = resultado.get("Xml")
+        comprobante.save()
+
+    return resultado
+
+
+
+# --- /home/runner/workspace/facturacion/utils/__init__.py ---
+
+
+
+# --- /home/runner/workspace/facturacion/utils/sat_firma.py ---
+from Crypto.Signature import pkcs1_15
+from Crypto.Hash import SHA256
+from Crypto.PublicKey import RSA
+import base64
+
+def generar_cadena_original(xml_str: str) -> str:
+    # En producción usar XSLT SAT (cadenaoriginal_4_0.xslt)
+    return xml_str  # Placeholder
+
+def firmar_cadena(cadena_original: str, ruta_llave_privada: str, password: str) -> str:
+    with open(ruta_llave_privada, 'rb') as f:
+        private_key = RSA.import_key(f.read(), passphrase=password)
+    h = SHA256.new(cadena_original.encode('utf-8'))
+    signature = pkcs1_15.new(private_key).sign(h)
+    return base64.b64encode(signature).decode('utf-8')
+
+def cargar_certificado_base64(ruta_cert: str) -> tuple[str, str]:
+    with open(ruta_cert, 'rb') as f:
+        cert = f.read()
+    cert_b64 = base64.b64encode(cert).decode('utf-8')
+    # Número de certificado del SAT (últimos 20 caracteres hex del serial)
+    from cryptography import x509
+    cert_obj = x509.load_der_x509_certificate(cert)
+    serial = format(cert_obj.serial_number, 'x').upper().zfill(20)
+    return cert_b64, serial
+
 
 
 

@@ -549,7 +549,7 @@ from inventario.models import Inventario, MovimientoInventario
 from compras.models import Compra, DetalleCompra
 from datetime import datetime
 from compras.filters import CompraFilter  # Importa el filtro
-
+from contabilidad.helpers.asientos import generar_asiento_para_compra
 import django_filters  # Asegúrate de que esta línea esté presente
 
 
@@ -741,7 +741,14 @@ class CompraViewSet(viewsets.ModelViewSet):
         empresa = usuario.empresa
         if not getattr(usuario, 'sucursal_actual', None):
             raise serializers.ValidationError("El usuario no tiene una sucursal asignada.")
-        serializer.save(empresa=empresa, usuario=usuario)
+
+        try:
+            with transaction.atomic():
+                compra = serializer.save(empresa=empresa, usuario=usuario)
+                # Generar asiento contable
+                asiento = generar_asiento_para_compra(compra, usuario)
+        except Exception as e:
+            raise serializers.ValidationError(f"Error al generar asiento contable: {str(e)}")
 
 
 

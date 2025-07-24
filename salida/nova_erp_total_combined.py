@@ -81,6 +81,8 @@ urlpatterns = [
     path('api/finanzas/', include('finanzas.urls')),
 
     path('api/contabilidad/', include('contabilidad.urls')),
+
+    path('api/facturacion/', include('facturacion.urls')),
 ]
 
 
@@ -104,19 +106,17 @@ from datetime import timedelta
 
 import os
 
-
-
 # import sentry_sdk
 # from sentry_sdk.integrations.django import DjangoIntegration
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 import sentry_sdk
 
 sentry_sdk.init(
-    dsn="https://59a6b3f5a097d60c09ff94e6a517e6f4@o4509617180311552.ingest.us.sentry.io/4509617183981568",
+    dsn=
+    "https://59a6b3f5a097d60c09ff94e6a517e6f4@o4509617180311552.ingest.us.sentry.io/4509617183981568",
     # Add data like request headers and IP for users,
     # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
     send_default_pii=True,
@@ -124,7 +124,9 @@ sentry_sdk.init(
 
 ALLOWED_IPS = ['190.10.20.30', '10.0.0.1']  # oficina, cliente
 
+
 class IPWhitelistMiddleware:
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -143,7 +145,6 @@ class IPWhitelistMiddleware:
 #     send_default_pii=True,
 # )
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
@@ -153,9 +154,7 @@ SECRET_KEY = 'django-insecure-qamg-)bhge&qtj+!*ayn4+*vp6=u708^1^$nu5hf7#1refr+do
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [ '*' ]
-
-
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -181,16 +180,17 @@ INSTALLED_APPS = [
     'rrhh',
     'documentos',
     'core',
+    'facturacion',
 
     # REST Framework y JWT
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
-
 ]
+FACTURAMA_USER = "EKU9003173C9222"
+FACTURAMA_PASSWORD = "Losy990209bn7"
 
-INSTALLED_APPS += ['django_filters','drf_spectacular']
-
+INSTALLED_APPS += ['django_filters', 'drf_spectacular']
 
 AUTH_USER_MODEL = 'accounts.Usuario'
 
@@ -200,7 +200,6 @@ MIDDLEWARE = [
 
     # CORS
     'corsheaders.middleware.CorsMiddleware',
-    
     'django.middleware.common.CommonMiddleware',
     # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -213,25 +212,27 @@ MIDDLEWARE = [
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 25,  # Páginas de 20 resultados
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
-    ),
+    'DEFAULT_FILTER_BACKENDS':
+    ['django_filters.rest_framework.DjangoFilterBackend'],
+    'DEFAULT_PAGINATION_CLASS':
+    'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE':
+    25,  # Páginas de 20 resultados
+    'DEFAULT_AUTHENTICATION_CLASSES':
+    ('rest_framework_simplejwt.authentication.JWTAuthentication', ),
+    'DEFAULT_PERMISSION_CLASSES':
+    ('rest_framework.permissions.IsAuthenticated', ),
     # 'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'DEFAULT_SCHEMA_CLASS': 'accounts.schema.CustomAutoSchema',
+    'DEFAULT_SCHEMA_CLASS':
+    'accounts.schema.CustomAutoSchema',
     #CIBERCEGURIDAD VS FUERZA BRUTA
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.UserRateThrottle',
         'rest_framework.throttling.AnonRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'user': '100/minute',     # ajusta según tu tráfico real
-        'anon': '10/minute',      # no autenticados (login, reset)
+        'user': '100/minute',  # ajusta según tu tráfico real
+        'anon': '10/minute',  # no autenticados (login, reset)
         'login': '5/minute',  # 👈 solo para login
     },
 }
@@ -240,12 +241,12 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Nova ERP API',
     'DESCRIPTION': 'Documentación de la API del sistema Nova ERP',
     'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': True,  # 👈 Esta línea permite conectar correctamente con /docs/
+    'SERVE_INCLUDE_SCHEMA':
+    True,  # 👈 Esta línea permite conectar correctamente con /docs/
     'SCHEMA_PATH_PREFIX': '/api/schema/',
     'PARSER_CLASSES': ['drf_spectacular.parsers.YAMLParser'],
     'RENDERER_CLASSES': ['drf_spectacular.renderers.YAMLRenderer'],
 }
-
 
 # settings.py DESPUES SE DESCOMENTARA CON LOGINS CREO
 LOGGING = {
@@ -289,7 +290,6 @@ AUTHENTICATION_BACKENDS = (
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '1039784506241-ehqp78nga5sh3rkumrii0ltkgcd46bph.apps.googleusercontent.com'
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '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'
 
-
 CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = 'nova_erp_total.urls'
@@ -305,7 +305,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'social_django.context_processors.backends',   # Agrega esta línea
+                'social_django.context_processors.backends',  # Agrega esta línea
                 'social_django.context_processors.login_redirect',  # Y esta
             ],
         },
@@ -313,7 +313,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'nova_erp_total.wsgi.application'
-
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
@@ -325,25 +324,27 @@ DATABASES = {
     }
 }
 
-
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'NAME':
+        'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'NAME':
+        'django.contrib.auth.password_validation.MinimumLengthValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        'NAME':
+        'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        'NAME':
+        'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
@@ -355,7 +356,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
@@ -400,8 +400,6 @@ SECURE_HSTS_PRELOAD = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
-
-
 # 🧪 3.4. ¿Cómo comprobar que estás protegido?
 # Usa curl -I o Postman para ver las cabeceras HTTP de tus respuestas.
 
@@ -415,9 +413,6 @@ CSRF_COOKIE_SECURE = True
 
 # Referrer-Policy: same-origin
 
-
-
-
 # Permite solo tu frontend (React, Vue, etc.)
 CORS_ALLOWED_ORIGINS = [
     "https://fca3faea-e64a-4f83-a448-762fa6e71df4-00-1kkfg9j97gplb.spock.replit.dev",
@@ -429,9 +424,7 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_ALL_ORIGINS = False
 
 # Métodos permitidos
-CORS_ALLOW_METHODS = [
-    "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
-]
+CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
 # Headers permitidos
 CORS_ALLOW_HEADERS = [
@@ -441,9 +434,6 @@ CORS_ALLOW_HEADERS = [
     "origin",
     "user-agent",
 ]
-
-
-
 
 # ✔️ Checklist de seguridad – Módulo ACCOUNTS – Nova ERP
 
@@ -492,4 +482,5 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'yaview.lomeli@gmail.com'
 EMAIL_HOST_PASSWORD = 'ncvs lfro srke goiq'
 DEFAULT_FROM_EMAIL = 'Nova_erp_api <yaview.lomeli@gmail.com>'
+
 

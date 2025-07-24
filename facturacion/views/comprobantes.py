@@ -1,23 +1,21 @@
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
+# views/comprobantes.py
+from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
 
 from facturacion.models import ComprobanteFiscal
-from facturacion.serializers.comprobantes import ComprobanteFiscalSerializer
-from facturacion.services.timbrado import timbrar_comprobante
+from facturacion.utils.build_facturama_payload import build_facturama_payload
+from facturacion.services.facturama import FacturamaService
 
+class TimbrarComprobanteAPIView(APIView):
+    def post(self, request, pk):
+        comprobante = get_object_or_404(ComprobanteFiscal, pk=pk)
+        payload = build_facturama_payload(comprobante)
 
-
-class ComprobanteFiscalViewSet(viewsets.ModelViewSet):
-    queryset = ComprobanteFiscal.objects.all()
-    serializer_class = ComprobanteFiscalSerializer
-
-    @action(detail=True, methods=['post'])
-    def timbrar(self, request, pk=None):
-        comprobante = self.get_object()
-        if comprobante.estado == 'TIMBRADO':
-            return Response({"detail": "Comprobante ya timbrado."}, status=status.HTTP_400_BAD_REQUEST)
-
-        comprobante = timbrar_comprobante(comprobante)
-        serializer = self.get_serializer(comprobante)
-        return Response(serializer.data)
+        try:
+            respuesta = FacturamaService.timbrar_comprobante(payload)
+            # Aquí podrías guardar en el comprobante la respuesta o UUID recibido
+            return Response(respuesta, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
