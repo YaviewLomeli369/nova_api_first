@@ -4,7 +4,7 @@ from rest_framework.response import Response
 
 from facturacion.models import ComprobanteFiscal
 from facturacion.serializers.comprobantes import ComprobanteFiscalSerializer
-from facturacion.helpers.services import timbrar_comprobante  # Aquí importas la función del helper
+from facturacion.services.timbrado import timbrar_comprobante
 
 
 

@@ -23,15 +23,21 @@ class ComprobanteFiscal(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     venta = models.OneToOneField(Venta, on_delete=models.CASCADE)
     uuid = models.CharField(max_length=36, unique=True, blank=True, null=True)  # UUID timbrado
-    xml = models.TextField(blank=True, null=True)  # XML CFDI completo
+    # xml = models.TextField(blank=True, null=True)  # XML CFDI completo
+    xml = models.FileField(upload_to="cfdi_xmls/", null=True, blank=True)
     pdf = models.FileField(upload_to='cfdi_pdfs/', blank=True, null=True)  # PDF factura
     fecha_timbrado = models.DateTimeField(blank=True, null=True)
     estado = models.CharField(max_length=20, choices=ESTADOS, default='PENDIENTE')  
     error_mensaje = models.TextField(blank=True, null=True)
     tipo = models.CharField(max_length=20, choices=TIPOS_COMPROBANTE, default='FACTURA')
+    serie = models.CharField(max_length=10, blank=True, null=True)
+    folio = models.PositiveIntegerField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def esta_timbrado(self):
+        return self.estado == 'TIMBRADO' and self.uuid is not None
 
     class Meta:
       indexes = [

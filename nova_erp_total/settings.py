@@ -96,7 +96,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
 ]
-FACTURAMA_USER = "YaviewLomeli"
+FACTURAMA_USER = "EKU9003173C9222"
 FACTURAMA_PASSWORD = "Losy990209bn7"
 
 INSTALLED_APPS += ['django_filters', 'drf_spectacular']
