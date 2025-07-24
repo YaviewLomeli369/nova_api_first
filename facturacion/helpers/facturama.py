@@ -81,5 +81,3 @@ def timbrar_cfdi_venta(venta):
             "error": str(e),
             "detalle": e.response.text if e.response else "No hay respuesta del servidor"
         }
-
-
