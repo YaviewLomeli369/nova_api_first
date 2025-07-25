@@ -27,6 +27,7 @@ from compras.filters import CompraFilter  # Importa el filtro
 from contabilidad.helpers.asientos import generar_asiento_para_compra
 import django_filters  # Asegúrate de que esta línea esté presente
 
+from finanzas.models import CuentaPorPagar
 
 
 
@@ -181,7 +182,7 @@ def custom_exception_handler(exc, context):
 
 
 class CompraViewSet(viewsets.ModelViewSet):
-    queryset = Compra.objects.all()
+    # queryset = Compra.objects.all()
     serializer_class = CompraSerializer
 
     filter_backends = [
@@ -212,18 +213,37 @@ class CompraViewSet(viewsets.ModelViewSet):
         return Compra.objects.none()
 
     def perform_create(self, serializer):
-        usuario = self.request.user
-        empresa = usuario.empresa
-        if not getattr(usuario, 'sucursal_actual', None):
-            raise serializers.ValidationError("El usuario no tiene una sucursal asignada.")
+        serializer.save()  # sin lógica extra aquí
+        # usuario = self.request.user
+        # empresa = usuario.empresa
+        # if not getattr(usuario, 'sucursal_actual', None):
+        #     raise serializers.ValidationError("El usuario no tiene una sucursal asignada.")
 
-        try:
-            with transaction.atomic():
-                compra = serializer.save(empresa=empresa, usuario=usuario)
-                # Generar asiento contable
-                asiento = generar_asiento_para_compra(compra, usuario)
-        except Exception as e:
-            raise serializers.ValidationError(f"Error al generar asiento contable: {str(e)}")
+        # try:
+        #     with transaction.atomic():
+        #         compra = serializer.save()
+
+        #         # Calcular total con precisión ahora que detalles están guardados
+        #         total = sum(
+        #             det.cantidad * det.precio_unitario
+        #             for det in compra.detalles.all()
+        #         )
+
+        #         # Crear CuentaPorPagar
+        #         fecha_vencimiento = compra.fecha + timedelta(days=30)
+        #         CuentaPorPagar.objects.create(
+        #             empresa=empresa,
+        #             compra=compra,
+        #             monto=total,
+        #             fecha_vencimiento=fecha_vencimiento,
+        #             estado='PENDIENTE'
+        #         )
+
+        #         # Crear asiento contable
+        #         generar_asiento_para_compra(compra, usuario)
+
+        # except Exception as e:
+        #     raise serializers.ValidationError(f"Error al generar asiento contable: {str(e)}")
 
 
 

@@ -6,7 +6,7 @@ hidden = [".pythonlibs"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["tree", "xcodebuild", "zlib"]
+packages = ["sqlite-interactive", "tree", "xcodebuild", "zlib"]
 
 [unitTest]
 language = "python3"

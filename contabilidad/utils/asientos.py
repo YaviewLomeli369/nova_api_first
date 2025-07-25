@@ -40,7 +40,7 @@ def registrar_asiento_pago(pago, usuario):
 
     elif pago.cuenta_cobrar:
         cliente = pago.cuenta_cobrar.cliente
-        cuenta_cliente = CuentaContable.objects.get(codigo='1030', empresa=empresa)
+        cuenta_cliente = CuentaContable.objects.get(codigo='1050', empresa=empresa)
 
         concepto = f"Pago recibido de cliente {cliente.nombre}"
         descripcion = f"Disminución de cuenta por cobrar de {cliente.nombre}"

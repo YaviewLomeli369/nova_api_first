@@ -3,6 +3,10 @@ import django
 from datetime import datetime
 import sqlite3
 from datetime import timezone as dt_timezone
+from decimal import Decimal
+from django.utils import timezone
+from datetime import timedelta
+from decimal import Decimal
 
 # Configura la variable de entorno para indicar dónde están los settings de tu proyecto Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'nova_erp_total.settings')  # Ajusta esta ruta
@@ -20,16 +24,12 @@ from inventario.models import (
 from compras.models import Proveedor, Compra, DetalleCompra
 from accounts.models import Empresa, Usuario
 from core.models import Sucursal
+from contabilidad.models import CuentaContable
+from compras.models import Proveedor
 
 DB_PATH = "db.sqlite3"
 EXCLUDE_TABLES = {
-    'accounts_auditoria',
-    'accounts_rol',
-    'accounts_usuario',
-    'accounts_usuario_groups',
-    'accounts_usuario_user_permissions',
-    'core_empresa',
-    'core_sucursal'
+    'l'
 }
 
 def limpiar_tablas_y_crear_empresa_sucursal():
@@ -79,8 +79,111 @@ def limpiar_tablas_y_crear_empresa_sucursal():
 
 def crear_actualizar_roles():
     datos_roles = [
-        #... tus roles aquí ...
+        {
+            "nombre": "Superadministrador",
+            "descripcion": (
+                "Acceso completo al sistema, configuración técnica, gestión global de empresas, usuarios y permisos.\n"
+                "- Acceso total (todas las apps)\n"
+                "- Ver, crear, editar y borrar cualquier registro\n"
+                "- Configuración de seguridad, backups, monitoreo"
+            ),
+            "grupo": None
+        },
+        {
+            "nombre": "Administrador de Empresa",
+            "descripcion": (
+                "Administra una empresa específica, incluyendo empleados, inventario, ventas, finanzas, etc.\n"
+                "- Ver y gestionar solo datos de su empresa\n"
+                "- CRUD en empleados, usuarios, sucursales, ventas, compras, etc.\n"
+                "- Ver reportes financieros\n"
+                "- No puede tocar configuraciones globales ni otras empresas"
+            ),
+            "grupo": None
+        },
+        {
+            "nombre": "Contador",
+            "descripcion": (
+                "Encargado de la contabilidad, asientos, reportes fiscales y conciliaciones.\n"
+                "- Acceso completo a módulo de contabilidad y finanzas\n"
+                "- Ver ventas y compras\n"
+                "- Exportar datos\n"
+                "- No puede modificar stock o ventas"
+            ),
+            "grupo": None
+        },
+        {
+            "nombre": "Tesorero / Finanzas",
+            "descripcion": (
+                "Administra bancos, pagos, conciliaciones, deudas.\n"
+                "- Ver cuentas por pagar/cobrar\n"
+                "- Manejar pagos y bancos\n"
+                "- Conciliar transacciones"
+            ),
+            "grupo": None
+        },
+        {
+            "nombre": "Administrador de Compras / Proveedores",
+            "descripcion": (
+                "Encargado de compras y gestión de proveedores.\n"
+                "- Crear órdenes y registrar compras\n"
+                "- Ver productos y stock\n"
+                "- Ver historial de proveedores"
+            ),
+            "grupo": None
+        },
+        {
+            "nombre": "Almacén / Inventario",
+            "descripcion": (
+                "Administra entradas y salidas de productos, lotes, ubicaciones.\n"
+                "- Ver productos, registrar movimientos\n"
+                "- Crear y modificar inventario, alertas\n"
+                "- No puede ver ventas ni modificar precios"
+            ),
+            "grupo": None
+        },
+        {
+            "nombre": "Vendedor",
+            "descripcion": (
+                "Crea ventas y clientes. Puede aplicar devoluciones si tiene permiso.\n"
+                "- Ver clientes\n"
+                "- Crear ventas\n"
+                "- Generar facturas\n"
+                "- No puede modificar productos ni ver reportes contables"
+            ),
+            "grupo": None
+        },
+        {
+            "nombre": "Auditor / Legal",
+            "descripcion": (
+                "Solo lectura de logs, documentos, movimientos contables y fiscales.\n"
+                "- Lectura completa del sistema\n"
+                "- Exportar CSV y PDF\n"
+                "- No puede editar"
+            ),
+            "grupo": None
+        },
+        {
+            "nombre": "Recursos Humanos",
+            "descripcion": (
+                "Administra empleados, asistencia y nómina.\n"
+                "- Ver y modificar datos de empleados\n"
+                "- Calcular y timbrar nóminas\n"
+                "- Exportar registros de asistencia"
+            ),
+            "grupo": None
+        },
+        {
+            "nombre": "Cliente externo",
+            "descripcion": (
+                "En el futuro: acceso limitado para consultar facturas, pagos o tickets.\n"
+                "- Ver sus propias facturas y estado de cuenta\n"
+                "- Ver historial de pagos\n"
+                "- No puede ver otros módulos"
+            ),
+            "grupo": None
+        }
     ]
+
 
     for rol_data in datos_roles:
         rol, creado = Rol.objects.update_or_create(
@@ -91,6 +194,9 @@ def crear_actualizar_roles():
             }
         )
         print(f"{'🟢 Creado' if creado else '🟡 Actualizado'}: {rol.nombre}")
+
+
+
 
 def crear_actualizar_superusuario():
     empresa, _ = Empresa.objects.get_or_create(
@@ -129,8 +235,6 @@ def crear_actualizar_superusuario():
     )
 
     if not created:
-        # Actualiza campos si ya existía el usuario
-        admin_user.id = 9
         admin_user.email = "admin@empresa.com"
         admin_user.empresa = empresa
         admin_user.sucursal_actual = sucursal
@@ -146,11 +250,10 @@ def crear_actualizar_superusuario():
         admin_user.telefono = None
         admin_user.direccion = None
 
-    admin_user.set_password("admin1234")  # Encripta la contraseña
+    admin_user.set_password("admin1234")
     admin_user.save()
 
     print(f"Superusuario {'creado' if created else 'actualizado'}: {admin_user.username} ({admin_user.email})")
-
 
 
 
@@ -271,6 +374,8 @@ def cargar_claves_sat_unidad():
 
 def crear_productos_ejemplo():
     empresa = Empresa.objects.get(id=4)
+    sucursal = Sucursal.objects.get(id=2)
+    usuario = Usuario.objects.get(username="admin")
 
     # Crear unidades SAT necesarias
     unidades = {
@@ -358,170 +463,154 @@ def crear_productos_ejemplo():
         else:
             print(f"ℹ️ Producto ya existe: {prod.nombre}")
 
-def crear_compras_y_actualizar_inventario():
+    # --- Crear stock inicial en Inventario y registrar movimientos ---
+    cantidades_stock = {
+        "PROD-001": Decimal("10"),
+        "PROD-002": Decimal("20"),
+        "PROD-003": Decimal("15"),
+    }
+
+    for info in productos_info:
+        producto = Producto.objects.get(empresa=empresa, codigo=info["codigo"])
+        cantidad = cantidades_stock.get(info["codigo"], Decimal("0"))
+
+        if cantidad > 0:
+            inventario, creado_inv = Inventario.objects.get_or_create(
+                producto=producto,
+                sucursal=sucursal,
+                lote=None,
+                fecha_vencimiento=None,
+                defaults={"cantidad": cantidad}
+            )
+            if not creado_inv:
+                inventario.cantidad += cantidad
+                inventario.save()
+
+            MovimientoInventario.objects.create(
+                inventario=inventario,
+                tipo_movimiento="entrada",
+                cantidad=cantidad,
+                usuario=usuario
+            )
+
+            print(f"✅ Stock inicial asignado para {producto.nombre}: {cantidad} unidades")
+
+
+def crear_clientes_prueba():
+    from ventas.models import Cliente
     empresa = Empresa.objects.get(id=4)
-    sucursal = Sucursal.objects.get(id=2)
-    usuario = Usuario.objects.get(username="admin")
 
-    proveedor, _ = Proveedor.objects.get_or_create(
-        empresa=empresa,
-        rfc="XAXX010101000",
-        defaults={"nombre": "Proveedor Genérico S.A. de C.V."}
-    )
+    clientes_demo = [
+        {
+            "nombre": "Cliente Demo 1",
+            "rfc": "XAXX010101000",
+            "correo": "cliente1@demo.com",
+            "telefono": "5551234567",
+            "direccion": "Calle Demo 123, Ciudad Demo",
+        },
+        {
+            "nombre": "Cliente Demo 2",
+            "rfc": "BADD010203AB1",
+            "correo": "cliente2@demo.com",
+            "telefono": "5559876543",
+            "direccion": "Avenida Falsa 456, Ciudad Falsa",
+        },
+        {
+            "nombre": "Cliente Demo 3",
+            "rfc": None,
+            "correo": "cliente3@demo.com",
+            "telefono": None,
+            "direccion": None,
+        },
+    ]
 
-    productos = list(Producto.objects.filter(empresa=empresa)[:3])
-
-    compra, creada = Compra.objects.get_or_create(
-        empresa=empresa,
-        proveedor=proveedor,
-        fecha=timezone.now(),
-        defaults={
-            "estado": "pendiente",
-            "usuario": usuario,
-            "total": Decimal("0.00"),
-        }
-    )
-    if creada:
-        print(f"✅ Compra creada (ID: {compra.id})")
-    else:
-        print(f"ℹ️ Compra ya existía (ID: {compra.id})")
-
-    total_compra = Decimal("0.00")
-
-    for i, producto in enumerate(productos):
-        lote = f"LOTE-{i+1:03d}"
-        fecha_vencimiento = timezone.now().date() + timedelta(days=30 * (i + 1))
-        cantidad = Decimal(10 + i*5)  # cantidades ejemplo: 10, 15, 20
-        precio_unitario = producto.precio_compra
-
-        detalle, creado = DetalleCompra.objects.get_or_create(
-            compra=compra,
-            producto=producto,
-            lote=lote,
-            fecha_vencimiento=fecha_vencimiento,
+    for datos in clientes_demo:
+        cliente, creado = Cliente.objects.update_or_create(
+            empresa=empresa,
+            nombre=datos["nombre"],
             defaults={
-                "cantidad": cantidad,
-                "precio_unitario": precio_unitario,
-                "cantidad_recibida": Decimal("0.00"),
+                "rfc": datos["rfc"],
+                "correo": datos["correo"],
+                "telefono": datos["telefono"],
+                "direccion": datos["direccion"],
             }
         )
-
-        if creado:
-            print(f"✅ DetalleCompra creado para producto '{producto.nombre}' lote '{lote}'")
-        else:
-            print(f"ℹ️ DetalleCompra ya existía para producto '{producto.nombre}' lote '{lote}'")
-
-        # Actualizar inventario: obtener o crear registro para ese producto, sucursal, lote y fecha venc.
-        inventario, _ = Inventario.objects.get_or_create(
-            producto=producto,
-            sucursal=sucursal,
-            lote=lote,
-            fecha_vencimiento=fecha_vencimiento,
-            defaults={"cantidad": Decimal("0.00")}
-        )
-        # Sumar cantidad recibida (simulamos que ya fue recibida toda la compra)
-        inventario.cantidad += cantidad
-        inventario.save()
-
-        # Registrar movimiento de inventario
-        MovimientoInventario.objects.create(
-            inventario=inventario,
-            tipo_movimiento='entrada',
-            cantidad=cantidad,
-            usuario=usuario
-        )
-        total_compra += cantidad * precio_unitario
-
-    # Actualizar total de compra
-    compra.total = total_compra
-    compra.estado = 'recibida'
-    compra.save()
-
-    print(f"💰 Total compra actualizado a: {total_compra}")
-
-if __name__ == "__main__":
-    crear_productos_ejemplo()
-    crear_compras_y_actualizar_inventario()
+        print(f"{'🟢 Creado' if creado else '🟡 Actualizado'} cliente: {cliente.nombre}")
 
 
-def crear_ejemplos_compras():
-    from compras.models import Proveedor, Compra, DetalleCompra
-    from inventario.models import Producto
-    from accounts.models import Empresa, Usuario
-    from django.utils import timezone
-    from decimal import Decimal
-    import random
-
+def crear_plan_contable_completo():
     empresa = Empresa.objects.get(id=4)
-    usuario = Usuario.objects.get(username="admin")
+    cuentas_base = [
+        {'codigo': '1010', 'nombre': 'Caja', 'clasificacion': 'activo', 'es_auxiliar': True},
+        {'codigo': '1020', 'nombre': 'Bancos', 'clasificacion': 'activo', 'es_auxiliar': True},
+        {'codigo': '2010', 'nombre': 'Proveedores', 'clasificacion': 'pasivo', 'es_auxiliar': True},
+        {'codigo': '4010', 'nombre': 'Ventas', 'clasificacion': 'ingreso', 'es_auxiliar': True},
+        {'codigo': '5010', 'nombre': 'Compras', 'clasificacion': 'gasto', 'es_auxiliar': True},
 
-    # Crear proveedor de ejemplo
-    proveedor, creado = Proveedor.objects.get_or_create(
-        empresa=empresa,
-        rfc="XAXX010101000",
-        defaults={
-            "nombre": "Proveedor Genérico S.A. de C.V.",
-            "correo": "proveedor@ejemplo.com",
-            "telefono": "555-123-4567",
-            "direccion": "Calle Ficticia 123, CDMX",
-        }
-    )
-    if creado:
-        print("✅ Proveedor creado.")
-    else:
-        print("ℹ️ Proveedor ya existía.")
+        # Cuentas faltantes para asientos de venta y compra:
+        {'codigo': '1050', 'nombre': 'Clientes por cobrar', 'clasificacion': 'activo', 'es_auxiliar': True},
+        {'codigo': '2080', 'nombre': 'IVA por pagar', 'clasificacion': 'pasivo', 'es_auxiliar': True},
+        {'codigo': '1180', 'nombre': 'IVA por acreditar', 'clasificacion': 'activo', 'es_auxiliar': True},
+    ]
 
-    # Obtener hasta 5 productos
-    productos = Producto.objects.filter(empresa=empresa)[:5]
-    if not productos.exists():
-        print("❌ No hay productos en la base de datos. Crea productos primero.")
-        return
-
-    # Crear compra
-    compra, creada = Compra.objects.get_or_create(
-        empresa=empresa,
-        proveedor=proveedor,
-        fecha=timezone.now(),
-        total=Decimal("0.00"),
-        defaults={
-            "estado": "pendiente",
-            "usuario": usuario,
-        }
-    )
-    if creada:
-        print(f"✅ Compra creada (ID: {compra.id})")
-    else:
-        print("ℹ️ Compra ya existía.")
-
-    total_compra = Decimal("0.00")
-
-    for i, producto in enumerate(productos):
-        lote = f"LOTE-{i+1:03d}"
-        fecha_vencimiento = timezone.now().date() + timezone.timedelta(days=30 * (i + 1))
-        cantidad = Decimal(random.randint(5, 20))
-        precio_unitario = Decimal(random.randint(50, 200))
-
-        detalle, creado = DetalleCompra.objects.get_or_create(
-            compra=compra,
-            producto=producto,
-            lote=lote,
-            fecha_vencimiento=fecha_vencimiento,
+    for cuenta in cuentas_base:
+        cuenta_obj, creado = CuentaContable.objects.get_or_create(
+            codigo=cuenta['codigo'],
+            empresa=empresa,
             defaults={
-                "cantidad": cantidad,
-                "precio_unitario": precio_unitario,
+                'nombre': cuenta['nombre'],
+                'clasificacion': cuenta['clasificacion'],
+                'es_auxiliar': cuenta['es_auxiliar'],
             }
         )
-
         if creado:
-            print(f"✅ Detalle creado para '{producto.nombre}' (lote {lote})")
-            total_compra += cantidad * precio_unitario
+            print(f"✅ Cuenta creada: {cuenta_obj.codigo} - {cuenta_obj.nombre}")
         else:
-            print(f"ℹ️ Ya existía detalle para '{producto.nombre}' (lote {lote})")
+            print(f"ℹ️ Cuenta ya existe: {cuenta_obj.codigo} - {cuenta_obj.nombre}")
 
-    # Actualizar total y guardar compra
-    compra.total = total_compra
-    compra.save()
-    print(f"💰 Total de la compra actualizado: ${total_compra}")
+def crear_proveedores_prueba():
+    empresa = Empresa.objects.get(id=4)
+    # Crear proveedores de prueba
+    proveedores_prueba = [
+        {
+            'nombre': 'Proveedor Uno S.A. de C.V.',
+            'rfc': 'PROV800101XXX',
+            'correo': 'contacto@proveedoruno.com',
+            'telefono': '5512345678',
+            'direccion': 'Calle Falsa 123, Ciudad, País',
+        },
+        {
+            'nombre': 'Distribuciones Globales S.A.',
+            'rfc': 'DIST900202YYY',
+            'correo': 'ventas@disglobal.com',
+            'telefono': '5587654321',
+            'direccion': 'Av. Principal 456, Ciudad, País',
+        },
+        {
+            'nombre': 'Importaciones y Exportaciones del Norte',
+            'rfc': 'IMPX700303ZZZ',
+            'correo': 'info@importxnorte.mx',
+            'telefono': '5543219876',
+            'direccion': 'Blvd. Industrial 789, Ciudad, País',
+        }
+    ]
+
+    for prov_data in proveedores_prueba:
+        prov_obj, creado = Proveedor.objects.get_or_create(
+            empresa=empresa,
+            rfc=prov_data['rfc'],
+            defaults={
+                'nombre': prov_data['nombre'],
+                'correo': prov_data['correo'],
+                'telefono': prov_data['telefono'],
+                'direccion': prov_data['direccion'],
+            }
+        )
+        if creado:
+            print(f"✅ Proveedor creado: {prov_obj.nombre} ({prov_obj.rfc})")
+        else:
+            print(f"ℹ️ Proveedor ya existe: {prov_obj.nombre} ({prov_obj.rfc})")
+
 
 
 
@@ -533,5 +622,7 @@ if __name__ == "__main__":
     cargar_claves_sat()
     cargar_claves_sat_unidad()
     crear_productos_ejemplo()
-    crear_compras_y_actualizar_inventario()
-    crear_ejemplos_compras()
+    # crear_compras_y_actualizar_inventario()
+    crear_clientes_prueba()  # << aquí la llamas
+    crear_plan_contable_completo()
+    crear_proveedores_prueba()
