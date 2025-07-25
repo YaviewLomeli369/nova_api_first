@@ -46,21 +46,21 @@ class Compra(models.Model):
         return sum(det.subtotal for det in self.detalles.all())
 
     def save(self, *args, **kwargs):
-        force_insert = kwargs.get('force_insert', False)
-        force_update = kwargs.get('force_update', False)
-
-        if not self.pk and not force_insert:
-            # Primer guardado para obtener pk
+        # Si es una nueva instancia sin PK, guardar primero sin calcular total
+        if not self.pk:
+            # Para nuevas instancias, asignar total 0 temporalmente
+            if not hasattr(self, 'total') or self.total is None:
+                self.total = 0
             super().save(*args, **kwargs)
+            return
 
+        # Solo calcular total si ya existe en la base de datos
         total_calculado = self.calcular_total()
         if self.total != total_calculado:
             self.total = total_calculado
             super().save(update_fields=['total'])
         else:
-            # Si es creación (force_insert), dejar que Django maneje ese insert
-            if self.pk or force_update or force_insert:
-                super().save(*args, **kwargs)
+            super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Compra"

@@ -39,18 +39,21 @@ class CompraSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("El usuario no tiene empresa asignada.")
 
         with transaction.atomic():
+            # Crear compra con total temporal 0
             compra = Compra.objects.create(
                 empresa=empresa,
                 usuario=usuario,
                 proveedor=validated_data['proveedor'],
                 fecha=validated_data.get('fecha'),
-                estado=validated_data.get('estado', 'PENDIENTE')
+                estado=validated_data.get('estado', 'PENDIENTE'),
+                total=0  # Total temporal
             )
 
+            # Crear los detalles
             for detalle_data in detalles_data:
                 DetalleCompra.objects.create(compra=compra, **detalle_data)
 
-            # ✅ Recalcular total después de guardar detalles
+            # Recalcular total después de guardar detalles
             compra.total = compra.calcular_total()
             compra.save(update_fields=['total'])
 
