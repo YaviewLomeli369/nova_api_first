@@ -8,7 +8,7 @@ class ProductoSerializer(serializers.ModelSerializer):
         model = Producto
         fields = [
             'id', 'empresa', 'codigo', 'nombre', 'descripcion', 'unidad_medida', 'categoria',
-            'categoria_nombre', 'precio_compra', 'precio_venta', 'stock_minimo', 'activo'
+            'categoria_nombre', 'precio_compra', 'precio_venta', 'stock_minimo', 'activo', 'clave_sat'
         ]
         read_only_fields = ['id']
 
