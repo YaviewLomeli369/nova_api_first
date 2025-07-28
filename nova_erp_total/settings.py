@@ -98,6 +98,8 @@ INSTALLED_APPS = [
 ]
 FACTURAMA_USER = "EKU9003173C9222"
 FACTURAMA_PASSWORD = "Losy990209bn7"
+# FACTURAMA_API_URL = "https://apisandbox.facturama.mx/3/cfdis/3.3/"
+FACTURAMA_API_URL = "https://apisandbox.facturama.mx/3/cfdis"
 
 INSTALLED_APPS += ['django_filters', 'drf_spectacular']
 

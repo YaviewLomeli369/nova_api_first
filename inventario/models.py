@@ -4,19 +4,6 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-class ClaveSATProducto(models.Model):
-    clave = models.CharField(max_length=20, unique=True)  # ej: "01010101"
-    descripcion = models.CharField(max_length=255)
-
-    class Meta:
-        verbose_name = "Clave SAT Producto"
-        verbose_name_plural = "Claves SAT Productos"
-        ordering = ['clave']
-
-    def __str__(self):
-        return f"{self.clave} - {self.descripcion}"
-
-
 class ClaveSATUnidad(models.Model):
     clave = models.CharField(max_length=10, unique=True)  # ej: "H87"
     descripcion = models.CharField(max_length=255)
@@ -28,6 +15,22 @@ class ClaveSATUnidad(models.Model):
 
     def __str__(self):
         return f"{self.clave} - {self.descripcion}"
+
+class ClaveSATProducto(models.Model):
+    clave = models.CharField(max_length=20, unique=True)  # ej: "01010101"
+    descripcion = models.CharField(max_length=255)
+    unidad = models.ForeignKey(ClaveSATUnidad, on_delete=models.PROTECT, related_name='claves_productos')
+
+    class Meta:
+        verbose_name = "Clave SAT Producto"
+        verbose_name_plural = "Claves SAT Productos"
+        ordering = ['clave']
+
+    def __str__(self):
+        return f"{self.clave} - {self.descripcion} ({self.unidad.clave})"
+
+
+
 
 class Categoria(models.Model):
     empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='categorias')

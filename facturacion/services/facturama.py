@@ -1,10 +1,13 @@
 # services/facturama.py
+# from django.conf import Settings
+from django.conf import settings   # correcto
 import requests
 from requests.auth import HTTPBasicAuth
 
-FACTURAMA_API_URL = "https://api.facturama.mx/3/cfdi"  # Endpoint para timbrar
-FACTURAMA_USER = "tu_usuario"  # Aquí va el RFC o usuario Facturama
-FACTURAMA_PASSWORD = "tu_password"  # Aquí va la contraseña/token Facturama
+# FACTURAMA_API_URL = "https://api.facturama.mx/3/cfdi"  # Endpoint para timbrar
+FACTURAMA_API_URL = settings.FACTURAMA_API_URL
+FACTURAMA_USER = settings.FACTURAMA_USER  # Aquí va el RFC o usuario Facturama
+FACTURAMA_PASSWORD = settings.FACTURAMA_PASSWORD  # Aquí va la contraseña/token Facturama
 
 class FacturamaService:
     @staticmethod

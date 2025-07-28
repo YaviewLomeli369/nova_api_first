@@ -61,13 +61,13 @@ def limpiar_tablas_y_crear_empresa_sucursal():
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, (
             4,
-            "Empresa del Superusuario",
-            "XAXX010101000",
+            "ESCUELA KEMPER URGATE",
+            "EKU9003173C9",
             "Domicilio fiscal demo",
-            "Régimen General",
+            "601",
             now,
             now,
-            "Razón Social Demo",
+            "ESCUELA KEMPER URGATE",
             "Calle Demo",
             "123",
             None,
@@ -75,7 +75,7 @@ def limpiar_tablas_y_crear_empresa_sucursal():
             "Municipio Demo",
             "Estado Demo",
             "MEX",
-            "01234"
+            "42501"
         ))
     else:
         print("Empresa ID 4 ya existe.")
@@ -103,7 +103,7 @@ def limpiar_tablas_y_crear_empresa_sucursal():
             "Municipio Sucursal",
             "Estado Sucursal",
             "MEX",
-            "56789"
+            "42501"
         ))
     else:
         print("Sucursal ID 2 ya existe.")
@@ -114,50 +114,7 @@ def limpiar_tablas_y_crear_empresa_sucursal():
     conn.close()
     print("\n¡Limpieza completada, empresa y sucursal aseguradas!")
 
-# def limpiar_tablas_y_crear_empresa_sucursal():
-#     conn = sqlite3.connect(DB_PATH)
-#     cursor = conn.cursor()
 
-#     cursor.execute("PRAGMA foreign_keys = OFF;")
-
-#     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-#     tables = [row[0] for row in cursor.fetchall()]
-#     tables_to_delete = [t for t in tables if t not in EXCLUDE_TABLES]
-
-#     print("Tablas que serán limpiadas:")
-#     for table in tables_to_delete:
-#         print(f" - {table}")
-#         cursor.execute(f"DELETE FROM {table};")
-
-#     now = datetime.now().isoformat(sep=' ', timespec='seconds')
-
-#     cursor.execute("SELECT id FROM core_empresa WHERE id = 4;")
-#     if not cursor.fetchone():
-#         print("Empresa ID 4 no existe. Creando...")
-#         cursor.execute("""
-#             INSERT INTO core_empresa (
-#                 id, nombre, rfc, domicilio_fiscal, regimen_fiscal, creado_en, actualizado_en, razon_social
-#             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-#         """, (4, "Empresa del Superusuario", "XAXX010101000", "Domicilio demo", "Régimen General", now, now, "Razón Social Demo"))
-#     else:
-#         print("Empresa ID 4 ya existe.")
-
-#     cursor.execute("SELECT id FROM core_sucursal WHERE id = 2;")
-#     if not cursor.fetchone():
-#         print("Sucursal ID 2 no existe. Creando...")
-#         cursor.execute("""
-#             INSERT INTO core_sucursal (
-#                 id, empresa_id, nombre, direccion, creado_en, actualizado_en
-#             ) VALUES (?, ?, ?, ?, ?, ?);
-#         """, (2, 4, "Sucursal Principal", "Dirección demo", now, now))
-#     else:
-#         print("Sucursal ID 2 ya existe.")
-
-#     cursor.execute("PRAGMA foreign_keys = ON;")
-
-#     conn.commit()
-#     conn.close()
-#     print("\n¡Limpieza completada, empresa y sucursal aseguradas!")
 
 def crear_actualizar_roles():
     datos_roles = [
@@ -337,6 +294,42 @@ def crear_actualizar_superusuario():
 
     print(f"Superusuario {'creado' if created else 'actualizado'}: {admin_user.username} ({admin_user.email})")
 
+# 
+
+def cargar_claves_sat_unidad():
+    from inventario.models import ClaveSATUnidad
+
+    datos_unidades = [
+        ("H87", "Pieza"),
+        ("E48", "Metro"),
+        ("LTR", "Litro"),
+        ("KGM", "Kilogramo"),
+        ("GRM", "Gramo"),
+        ("MTS", "Metro cuadrado"),
+        ("MTK", "Metro cúbico"),
+        ("ACT", "Actividad"),
+        ("C62", "Unidad de servicio"),
+        ("EA", "Ea (Cada uno)"),
+        ("HUR", "Horas"),
+        ("MIN", "Minutos"),
+        ("DAY", "Días"),
+        ("MO", "Meses"),
+        ("ANN", "Años"),
+        ("CM", "Centímetro"),
+        ("MM", "Milímetro"),
+    ]
+
+    for clave, descripcion in datos_unidades:
+        unidad, created = ClaveSATUnidad.objects.get_or_create(
+            clave=clave,
+            defaults={"descripcion": descripcion}
+        )
+        if not created and unidad.descripcion != descripcion:
+            unidad.descripcion = descripcion
+            unidad.save()
+
+    print("✅ Claves SAT Unidad cargadas correctamente.")
+
 
 
 def cargar_claves_sat():
@@ -395,61 +388,41 @@ def cargar_claves_sat():
         ("01010150", "Servicios de recursos humanos", "ACT", "Actividad"),
     ]
 
-    unidades_existentes = {}
+    unidades_cache = {}
 
     for clave_prod, desc_prod, clave_uni, desc_uni in datos_sat:
-        if clave_uni not in unidades_existentes:
-            unidad_obj, created = ClaveSATUnidad.objects.get_or_create(
+        unidad = unidades_cache.get(clave_uni)
+
+        if not unidad:
+            unidad, _ = ClaveSATUnidad.objects.get_or_create(
                 clave=clave_uni,
                 defaults={"descripcion": desc_uni}
             )
-            if not created and unidad_obj.descripcion != desc_uni:
-                unidad_obj.descripcion = desc_uni
-                unidad_obj.save()
-            unidades_existentes[clave_uni] = unidad_obj
-        else:
-            unidad_obj = unidades_existentes[clave_uni]
+            unidades_cache[clave_uni] = unidad
 
-        ClaveSATProducto.objects.get_or_create(
+        producto_sat, created = ClaveSATProducto.objects.get_or_create(
             clave=clave_prod,
-            defaults={"descripcion": desc_prod}
+            defaults={
+                "descripcion": desc_prod,
+                "unidad": unidad
+            }
         )
 
-    print("✅ Claves SAT cargadas correctamente.")
+        # Si ya existía pero tiene la unidad errónea o faltante
+        if not created:
+            updated = False
+            if producto_sat.descripcion != desc_prod:
+                producto_sat.descripcion = desc_prod
+                updated = True
+            if producto_sat.unidad != unidad:
+                producto_sat.unidad = unidad
+                updated = True
+            if updated:
+                producto_sat.save()
 
-def cargar_claves_sat_unidad():
-    from inventario.models import ClaveSATUnidad
+    print("✅ Claves SAT Producto cargadas correctamente.")
 
-    datos_unidades = [
-        ("H87", "Pieza"),
-        ("E48", "Metro"),
-        ("LTR", "Litro"),
-        ("KGM", "Kilogramo"),
-        ("GRM", "Gramo"),
-        ("MTS", "Metro cuadrado"),
-        ("MTK", "Metro cúbico"),
-        ("ACT", "Actividad"),
-        ("C62", "Unidad de servicio"),
-        ("EA", "Ea (Cada uno)"),
-        ("HUR", "Horas"),
-        ("MIN", "Minutos"),
-        ("DAY", "Días"),
-        ("MO", "Meses"),
-        ("ANN", "Años"),
-        ("CM", "Centímetro"),
-        ("MM", "Milímetro"),
-    ]
 
-    for clave, descripcion in datos_unidades:
-        unidad, created = ClaveSATUnidad.objects.get_or_create(
-            clave=clave,
-            defaults={"descripcion": descripcion}
-        )
-        if not created and unidad.descripcion != descripcion:
-            unidad.descripcion = descripcion
-            unidad.save()
-
-    print("✅ Claves SAT Unidad cargadas correctamente.")
 
 
 
@@ -585,13 +558,13 @@ def crear_clientes_prueba():
 
     clientes_demo = [
         {
-            "nombre": "Cliente Demo 1",
-            "apellido_paterno": "Pérez",
-            "apellido_materno": "García",
-            "rfc": "XAXX010101000",  # RFC genérico nacional
+            "nombre": "ESCUELA",
+            "apellido_paterno": "KEMPER",
+            "apellido_materno": "URGATE",
+            "rfc": "EKU9003173C9",  # RFC genérico nacional
             "correo": "cliente1@demo.com",
             "telefono": "5551234567",
-            "uso_cfdi": "P01",  # Por definir
+            "uso_cfdi": "G01",  # Por definir
             "regimen_fiscal": "601",  # General de ley PM
             "direccion_calle": "Calle Demo",
             "direccion_num_ext": "123",
@@ -600,7 +573,7 @@ def crear_clientes_prueba():
             "direccion_municipio": "Ciudad Demo",
             "direccion_estado": "CDMX",
             "direccion_pais": "MEX",
-            "direccion_codigo_postal": "01234",
+            "direccion_codigo_postal": "42501",
         },
         {
             "nombre": "Cliente Demo 2",
@@ -663,195 +636,6 @@ def crear_clientes_prueba():
             }
         )
         print(f"{'🟢 Creado' if creado else '🟡 Actualizado'} cliente: {cliente.nombre_completo}")
-# def crear_clientes_prueba():
-#     from ventas.models import Cliente
-#     from core.models import Empresa
-
-#     empresa = Empresa.objects.get(id=4)
-
-#     clientes_demo = [
-#         {
-#             "nombre": "Cliente Demo 1",
-#             "rfc": "XAXX010101000",  # RFC genérico nacional
-#             "correo": "cliente1@demo.com",
-#             "telefono": "5551234567",
-#             "uso_cfdi": "P01",  # Por definir
-#             "regimen_fiscal": "601",  # General de ley PM
-#             "direccion_calle": "Calle Demo",
-#             "direccion_num_ext": "123",
-#             "direccion_num_int": None,
-#             "direccion_colonia": None,
-#             "direccion_municipio": "Ciudad Demo",
-#             "direccion_estado": "CDMX",
-#             "direccion_pais": "MEX",
-#             "direccion_codigo_postal": "01234",
-#         },
-#         {
-#             "nombre": "Cliente Demo 2",
-#             "rfc": "BADD010203AB1",  # RFC válido persona física
-#             "correo": "cliente2@demo.com",
-#             "telefono": "5559876543",
-#             "uso_cfdi": "G03",  # Gastos en general
-#             "regimen_fiscal": "612",  # PF con actividad empresarial
-#             "direccion_calle": "Avenida Falsa",
-#             "direccion_num_ext": "456",
-#             "direccion_num_int": "2",
-#             "direccion_colonia": "Colonia Ficticia",
-#             "direccion_municipio": "Ciudad Falsa",
-#             "direccion_estado": "Jalisco",
-#             "direccion_pais": "MEX",
-#             "direccion_codigo_postal": "44100",
-#         },
-#         {
-#             "nombre": "Cliente Demo 3",
-#             "rfc": None,
-#             "correo": "cliente3@demo.com",
-#             "telefono": None,
-#             "uso_cfdi": "G03",
-#             "regimen_fiscal": "612",
-#             "direccion_calle": None,
-#             "direccion_num_ext": None,
-#             "direccion_num_int": None,
-#             "direccion_colonia": None,
-#             "direccion_municipio": None,
-#             "direccion_estado": None,
-#             "direccion_pais": "MEX",
-#             "direccion_codigo_postal": None,
-#         },
-#     ]
-
-#     for datos in clientes_demo:
-#         cliente, creado = Cliente.objects.update_or_create(
-#             empresa=empresa,
-#             nombre=datos["nombre"],
-#             defaults={
-#                 "rfc": datos["rfc"],
-#                 "correo": datos["correo"],
-#                 "telefono": datos["telefono"],
-#                 "uso_cfdi": datos["uso_cfdi"],
-#                 "regimen_fiscal": datos["regimen_fiscal"],
-#                 "direccion_calle": datos["direccion_calle"],
-#                 "direccion_num_ext": datos["direccion_num_ext"],
-#                 "direccion_num_int": datos["direccion_num_int"],
-#                 "direccion_colonia": datos["direccion_colonia"],
-#                 "direccion_municipio": datos["direccion_municipio"],
-#                 "direccion_estado": datos["direccion_estado"],
-#                 "direccion_pais": datos.get("direccion_pais", "MEX"),
-#                 "direccion_codigo_postal": datos["direccion_codigo_postal"],
-#             }
-#         )
-#         print(f"{'🟢 Creado' if creado else '🟡 Actualizado'} cliente: {cliente.nombre}")
-# def crear_clientes_prueba():
-#     from ventas.models import Cliente
-#     from core.models import Empresa
-#     empresa = Empresa.objects.get(id=4)
-
-#     clientes_demo = [
-#         {
-#             "nombre": "Cliente Demo 1",
-#             "rfc": "XAXX010101000",
-#             "correo": "cliente1@demo.com",
-#             "telefono": "5551234567",
-#             "direccion_calle": "Calle Demo",
-#             "direccion_num_ext": "123",
-#             "direccion_num_int": None,
-#             "direccion_colonia": None,
-#             "direccion_municipio": "Ciudad Demo",
-#             "direccion_estado": None,
-#             "direccion_pais": "MEX",
-#             "direccion_codigo_postal": None,
-#         },
-#         {
-#             "nombre": "Cliente Demo 2",
-#             "rfc": "BADD010203AB1",
-#             "correo": "cliente2@demo.com",
-#             "telefono": "5559876543",
-#             "direccion_calle": "Avenida Falsa",
-#             "direccion_num_ext": "456",
-#             "direccion_num_int": None,
-#             "direccion_colonia": None,
-#             "direccion_municipio": "Ciudad Falsa",
-#             "direccion_estado": None,
-#             "direccion_pais": "MEX",
-#             "direccion_codigo_postal": None,
-#         },
-#         {
-#             "nombre": "Cliente Demo 3",
-#             "rfc": None,
-#             "correo": "cliente3@demo.com",
-#             "telefono": None,
-#             "direccion_calle": None,
-#             "direccion_num_ext": None,
-#             "direccion_num_int": None,
-#             "direccion_colonia": None,
-#             "direccion_municipio": None,
-#             "direccion_estado": None,
-#             "direccion_pais": "MEX",
-#             "direccion_codigo_postal": None,
-#         },
-#     ]
-
-#     for datos in clientes_demo:
-#         cliente, creado = Cliente.objects.update_or_create(
-#             empresa=empresa,
-#             nombre=datos["nombre"],
-#             defaults={
-#                 "rfc": datos["rfc"],
-#                 "correo": datos["correo"],
-#                 "telefono": datos["telefono"],
-#                 "direccion_calle": datos["direccion_calle"],
-#                 "direccion_num_ext": datos["direccion_num_ext"],
-#                 "direccion_num_int": datos["direccion_num_int"],
-#                 "direccion_colonia": datos["direccion_colonia"],
-#                 "direccion_municipio": datos["direccion_municipio"],
-#                 "direccion_estado": datos["direccion_estado"],
-#                 "direccion_pais": datos.get("direccion_pais", "MEX"),
-#                 "direccion_codigo_postal": datos["direccion_codigo_postal"],
-#             }
-#         )
-#         print(f"{'🟢 Creado' if creado else '🟡 Actualizado'} cliente: {cliente.nombre}")
-
-
-# def crear_clientes_prueba():
-#     from ventas.models import Cliente
-#     empresa = Empresa.objects.get(id=4)
-
-#     clientes_demo = [
-#         {
-#             "nombre": "Cliente Demo 1",
-#             "rfc": "XAXX010101000",
-#             "correo": "cliente1@demo.com",
-#             "telefono": "5551234567",
-#             "direccion": "Calle Demo 123, Ciudad Demo",
-#         },
-#         {
-#             "nombre": "Cliente Demo 2",
-#             "rfc": "BADD010203AB1",
-#             "correo": "cliente2@demo.com",
-#             "telefono": "5559876543",
-#             "direccion": "Avenida Falsa 456, Ciudad Falsa",
-#         },
-#         {
-#             "nombre": "Cliente Demo 3",
-#             "rfc": None,
-#             "correo": "cliente3@demo.com",
-#             "telefono": None,
-#             "direccion": None,
-#         },
-#     ]
-
-#     for datos in clientes_demo:
-#         cliente, creado = Cliente.objects.update_or_create(
-#             empresa=empresa,
-#             nombre=datos["nombre"],
-#             defaults={
-#                 "rfc": datos["rfc"],
-#                 "correo": datos["correo"],
-#                 "telefono": datos["telefono"],
-#                 "direccion": datos["direccion"],
-#             }
-#         )
-#         print(f"{'🟢 Creado' if creado else '🟡 Actualizado'} cliente: {cliente.nombre}")
 
 
 def crear_plan_contable_completo():
