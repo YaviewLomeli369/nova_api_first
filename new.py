@@ -49,25 +49,62 @@ def limpiar_tablas_y_crear_empresa_sucursal():
 
     now = datetime.now().isoformat(sep=' ', timespec='seconds')
 
+    # Insertar empresa con todos los campos requeridos
     cursor.execute("SELECT id FROM core_empresa WHERE id = 4;")
     if not cursor.fetchone():
         print("Empresa ID 4 no existe. Creando...")
         cursor.execute("""
             INSERT INTO core_empresa (
-                id, nombre, rfc, domicilio_fiscal, regimen_fiscal, creado_en, actualizado_en, razon_social
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-        """, (4, "Empresa del Superusuario", "XAXX010101000", "Domicilio demo", "Régimen General", now, now, "Razón Social Demo"))
+                id, nombre, rfc, domicilio_fiscal, regimen_fiscal, creado_en, actualizado_en, razon_social,
+                domicilio_calle, domicilio_num_ext, domicilio_num_int, domicilio_colonia, domicilio_municipio,
+                domicilio_estado, domicilio_pais, domicilio_codigo_postal
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """, (
+            4,
+            "Empresa del Superusuario",
+            "XAXX010101000",
+            "Domicilio fiscal demo",
+            "Régimen General",
+            now,
+            now,
+            "Razón Social Demo",
+            "Calle Demo",
+            "123",
+            None,
+            "Colonia Demo",
+            "Municipio Demo",
+            "Estado Demo",
+            "MEX",
+            "01234"
+        ))
     else:
         print("Empresa ID 4 ya existe.")
 
+    # Insertar sucursal con los nuevos campos de domicilio
     cursor.execute("SELECT id FROM core_sucursal WHERE id = 2;")
     if not cursor.fetchone():
         print("Sucursal ID 2 no existe. Creando...")
         cursor.execute("""
             INSERT INTO core_sucursal (
-                id, empresa_id, nombre, direccion, creado_en, actualizado_en
-            ) VALUES (?, ?, ?, ?, ?, ?);
-        """, (2, 4, "Sucursal Principal", "Dirección demo", now, now))
+                id, empresa_id, nombre, creado_en, actualizado_en,
+                domicilio_calle, domicilio_num_ext, domicilio_num_int, domicilio_colonia,
+                domicilio_municipio, domicilio_estado, domicilio_pais, domicilio_codigo_postal
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """, (
+            2,
+            4,
+            "Sucursal Principal",
+            now,
+            now,
+            "Calle Sucursal",
+            "456",
+            None,
+            "Colonia Sucursal",
+            "Municipio Sucursal",
+            "Estado Sucursal",
+            "MEX",
+            "56789"
+        ))
     else:
         print("Sucursal ID 2 ya existe.")
 
@@ -76,6 +113,51 @@ def limpiar_tablas_y_crear_empresa_sucursal():
     conn.commit()
     conn.close()
     print("\n¡Limpieza completada, empresa y sucursal aseguradas!")
+
+# def limpiar_tablas_y_crear_empresa_sucursal():
+#     conn = sqlite3.connect(DB_PATH)
+#     cursor = conn.cursor()
+
+#     cursor.execute("PRAGMA foreign_keys = OFF;")
+
+#     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+#     tables = [row[0] for row in cursor.fetchall()]
+#     tables_to_delete = [t for t in tables if t not in EXCLUDE_TABLES]
+
+#     print("Tablas que serán limpiadas:")
+#     for table in tables_to_delete:
+#         print(f" - {table}")
+#         cursor.execute(f"DELETE FROM {table};")
+
+#     now = datetime.now().isoformat(sep=' ', timespec='seconds')
+
+#     cursor.execute("SELECT id FROM core_empresa WHERE id = 4;")
+#     if not cursor.fetchone():
+#         print("Empresa ID 4 no existe. Creando...")
+#         cursor.execute("""
+#             INSERT INTO core_empresa (
+#                 id, nombre, rfc, domicilio_fiscal, regimen_fiscal, creado_en, actualizado_en, razon_social
+#             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+#         """, (4, "Empresa del Superusuario", "XAXX010101000", "Domicilio demo", "Régimen General", now, now, "Razón Social Demo"))
+#     else:
+#         print("Empresa ID 4 ya existe.")
+
+#     cursor.execute("SELECT id FROM core_sucursal WHERE id = 2;")
+#     if not cursor.fetchone():
+#         print("Sucursal ID 2 no existe. Creando...")
+#         cursor.execute("""
+#             INSERT INTO core_sucursal (
+#                 id, empresa_id, nombre, direccion, creado_en, actualizado_en
+#             ) VALUES (?, ?, ?, ?, ?, ?);
+#         """, (2, 4, "Sucursal Principal", "Dirección demo", now, now))
+#     else:
+#         print("Sucursal ID 2 ya existe.")
+
+#     cursor.execute("PRAGMA foreign_keys = ON;")
+
+#     conn.commit()
+#     conn.close()
+#     print("\n¡Limpieza completada, empresa y sucursal aseguradas!")
 
 def crear_actualizar_roles():
     datos_roles = [
@@ -495,32 +577,66 @@ def crear_productos_ejemplo():
 
             print(f"✅ Stock inicial asignado para {producto.nombre}: {cantidad} unidades")
 
-
 def crear_clientes_prueba():
     from ventas.models import Cliente
+    from core.models import Empresa
+
     empresa = Empresa.objects.get(id=4)
 
     clientes_demo = [
         {
             "nombre": "Cliente Demo 1",
-            "rfc": "XAXX010101000",
+            "apellido_paterno": "Pérez",
+            "apellido_materno": "García",
+            "rfc": "XAXX010101000",  # RFC genérico nacional
             "correo": "cliente1@demo.com",
             "telefono": "5551234567",
-            "direccion": "Calle Demo 123, Ciudad Demo",
+            "uso_cfdi": "P01",  # Por definir
+            "regimen_fiscal": "601",  # General de ley PM
+            "direccion_calle": "Calle Demo",
+            "direccion_num_ext": "123",
+            "direccion_num_int": None,
+            "direccion_colonia": None,
+            "direccion_municipio": "Ciudad Demo",
+            "direccion_estado": "CDMX",
+            "direccion_pais": "MEX",
+            "direccion_codigo_postal": "01234",
         },
         {
             "nombre": "Cliente Demo 2",
-            "rfc": "BADD010203AB1",
+            "apellido_paterno": "López",
+            "apellido_materno": "Martínez",
+            "rfc": "BADD010203AB1",  # RFC válido persona física
             "correo": "cliente2@demo.com",
             "telefono": "5559876543",
-            "direccion": "Avenida Falsa 456, Ciudad Falsa",
+            "uso_cfdi": "G03",  # Gastos en general
+            "regimen_fiscal": "612",  # PF con actividad empresarial
+            "direccion_calle": "Avenida Falsa",
+            "direccion_num_ext": "456",
+            "direccion_num_int": "2",
+            "direccion_colonia": "Colonia Ficticia",
+            "direccion_municipio": "Ciudad Falsa",
+            "direccion_estado": "Jalisco",
+            "direccion_pais": "MEX",
+            "direccion_codigo_postal": "44100",
         },
         {
             "nombre": "Cliente Demo 3",
+            "apellido_paterno": None,
+            "apellido_materno": None,
             "rfc": None,
             "correo": "cliente3@demo.com",
             "telefono": None,
-            "direccion": None,
+            "uso_cfdi": "G03",
+            "regimen_fiscal": "612",
+            "direccion_calle": None,
+            "direccion_num_ext": None,
+            "direccion_num_int": None,
+            "direccion_colonia": None,
+            "direccion_municipio": None,
+            "direccion_estado": None,
+            "direccion_pais": "MEX",
+            "direccion_codigo_postal": None,
         },
     ]
 
@@ -529,13 +645,213 @@ def crear_clientes_prueba():
             empresa=empresa,
             nombre=datos["nombre"],
             defaults={
+                "apellido_paterno": datos.get("apellido_paterno"),
+                "apellido_materno": datos.get("apellido_materno"),
                 "rfc": datos["rfc"],
                 "correo": datos["correo"],
                 "telefono": datos["telefono"],
-                "direccion": datos["direccion"],
+                "uso_cfdi": datos["uso_cfdi"],
+                "regimen_fiscal": datos["regimen_fiscal"],
+                "direccion_calle": datos["direccion_calle"],
+                "direccion_num_ext": datos["direccion_num_ext"],
+                "direccion_num_int": datos["direccion_num_int"],
+                "direccion_colonia": datos["direccion_colonia"],
+                "direccion_municipio": datos["direccion_municipio"],
+                "direccion_estado": datos["direccion_estado"],
+                "direccion_pais": datos.get("direccion_pais", "MEX"),
+                "direccion_codigo_postal": datos["direccion_codigo_postal"],
             }
         )
-        print(f"{'🟢 Creado' if creado else '🟡 Actualizado'} cliente: {cliente.nombre}")
+        print(f"{'🟢 Creado' if creado else '🟡 Actualizado'} cliente: {cliente.nombre_completo}")
+# def crear_clientes_prueba():
+#     from ventas.models import Cliente
+#     from core.models import Empresa
+
+#     empresa = Empresa.objects.get(id=4)
+
+#     clientes_demo = [
+#         {
+#             "nombre": "Cliente Demo 1",
+#             "rfc": "XAXX010101000",  # RFC genérico nacional
+#             "correo": "cliente1@demo.com",
+#             "telefono": "5551234567",
+#             "uso_cfdi": "P01",  # Por definir
+#             "regimen_fiscal": "601",  # General de ley PM
+#             "direccion_calle": "Calle Demo",
+#             "direccion_num_ext": "123",
+#             "direccion_num_int": None,
+#             "direccion_colonia": None,
+#             "direccion_municipio": "Ciudad Demo",
+#             "direccion_estado": "CDMX",
+#             "direccion_pais": "MEX",
+#             "direccion_codigo_postal": "01234",
+#         },
+#         {
+#             "nombre": "Cliente Demo 2",
+#             "rfc": "BADD010203AB1",  # RFC válido persona física
+#             "correo": "cliente2@demo.com",
+#             "telefono": "5559876543",
+#             "uso_cfdi": "G03",  # Gastos en general
+#             "regimen_fiscal": "612",  # PF con actividad empresarial
+#             "direccion_calle": "Avenida Falsa",
+#             "direccion_num_ext": "456",
+#             "direccion_num_int": "2",
+#             "direccion_colonia": "Colonia Ficticia",
+#             "direccion_municipio": "Ciudad Falsa",
+#             "direccion_estado": "Jalisco",
+#             "direccion_pais": "MEX",
+#             "direccion_codigo_postal": "44100",
+#         },
+#         {
+#             "nombre": "Cliente Demo 3",
+#             "rfc": None,
+#             "correo": "cliente3@demo.com",
+#             "telefono": None,
+#             "uso_cfdi": "G03",
+#             "regimen_fiscal": "612",
+#             "direccion_calle": None,
+#             "direccion_num_ext": None,
+#             "direccion_num_int": None,
+#             "direccion_colonia": None,
+#             "direccion_municipio": None,
+#             "direccion_estado": None,
+#             "direccion_pais": "MEX",
+#             "direccion_codigo_postal": None,
+#         },
+#     ]
+
+#     for datos in clientes_demo:
+#         cliente, creado = Cliente.objects.update_or_create(
+#             empresa=empresa,
+#             nombre=datos["nombre"],
+#             defaults={
+#                 "rfc": datos["rfc"],
+#                 "correo": datos["correo"],
+#                 "telefono": datos["telefono"],
+#                 "uso_cfdi": datos["uso_cfdi"],
+#                 "regimen_fiscal": datos["regimen_fiscal"],
+#                 "direccion_calle": datos["direccion_calle"],
+#                 "direccion_num_ext": datos["direccion_num_ext"],
+#                 "direccion_num_int": datos["direccion_num_int"],
+#                 "direccion_colonia": datos["direccion_colonia"],
+#                 "direccion_municipio": datos["direccion_municipio"],
+#                 "direccion_estado": datos["direccion_estado"],
+#                 "direccion_pais": datos.get("direccion_pais", "MEX"),
+#                 "direccion_codigo_postal": datos["direccion_codigo_postal"],
+#             }
+#         )
+#         print(f"{'🟢 Creado' if creado else '🟡 Actualizado'} cliente: {cliente.nombre}")
+# def crear_clientes_prueba():
+#     from ventas.models import Cliente
+#     from core.models import Empresa
+#     empresa = Empresa.objects.get(id=4)
+
+#     clientes_demo = [
+#         {
+#             "nombre": "Cliente Demo 1",
+#             "rfc": "XAXX010101000",
+#             "correo": "cliente1@demo.com",
+#             "telefono": "5551234567",
+#             "direccion_calle": "Calle Demo",
+#             "direccion_num_ext": "123",
+#             "direccion_num_int": None,
+#             "direccion_colonia": None,
+#             "direccion_municipio": "Ciudad Demo",
+#             "direccion_estado": None,
+#             "direccion_pais": "MEX",
+#             "direccion_codigo_postal": None,
+#         },
+#         {
+#             "nombre": "Cliente Demo 2",
+#             "rfc": "BADD010203AB1",
+#             "correo": "cliente2@demo.com",
+#             "telefono": "5559876543",
+#             "direccion_calle": "Avenida Falsa",
+#             "direccion_num_ext": "456",
+#             "direccion_num_int": None,
+#             "direccion_colonia": None,
+#             "direccion_municipio": "Ciudad Falsa",
+#             "direccion_estado": None,
+#             "direccion_pais": "MEX",
+#             "direccion_codigo_postal": None,
+#         },
+#         {
+#             "nombre": "Cliente Demo 3",
+#             "rfc": None,
+#             "correo": "cliente3@demo.com",
+#             "telefono": None,
+#             "direccion_calle": None,
+#             "direccion_num_ext": None,
+#             "direccion_num_int": None,
+#             "direccion_colonia": None,
+#             "direccion_municipio": None,
+#             "direccion_estado": None,
+#             "direccion_pais": "MEX",
+#             "direccion_codigo_postal": None,
+#         },
+#     ]
+
+#     for datos in clientes_demo:
+#         cliente, creado = Cliente.objects.update_or_create(
+#             empresa=empresa,
+#             nombre=datos["nombre"],
+#             defaults={
+#                 "rfc": datos["rfc"],
+#                 "correo": datos["correo"],
+#                 "telefono": datos["telefono"],
+#                 "direccion_calle": datos["direccion_calle"],
+#                 "direccion_num_ext": datos["direccion_num_ext"],
+#                 "direccion_num_int": datos["direccion_num_int"],
+#                 "direccion_colonia": datos["direccion_colonia"],
+#                 "direccion_municipio": datos["direccion_municipio"],
+#                 "direccion_estado": datos["direccion_estado"],
+#                 "direccion_pais": datos.get("direccion_pais", "MEX"),
+#                 "direccion_codigo_postal": datos["direccion_codigo_postal"],
+#             }
+#         )
+#         print(f"{'🟢 Creado' if creado else '🟡 Actualizado'} cliente: {cliente.nombre}")
+
+
+# def crear_clientes_prueba():
+#     from ventas.models import Cliente
+#     empresa = Empresa.objects.get(id=4)
+
+#     clientes_demo = [
+#         {
+#             "nombre": "Cliente Demo 1",
+#             "rfc": "XAXX010101000",
+#             "correo": "cliente1@demo.com",
+#             "telefono": "5551234567",
+#             "direccion": "Calle Demo 123, Ciudad Demo",
+#         },
+#         {
+#             "nombre": "Cliente Demo 2",
+#             "rfc": "BADD010203AB1",
+#             "correo": "cliente2@demo.com",
+#             "telefono": "5559876543",
+#             "direccion": "Avenida Falsa 456, Ciudad Falsa",
+#         },
+#         {
+#             "nombre": "Cliente Demo 3",
+#             "rfc": None,
+#             "correo": "cliente3@demo.com",
+#             "telefono": None,
+#             "direccion": None,
+#         },
+#     ]
+
+#     for datos in clientes_demo:
+#         cliente, creado = Cliente.objects.update_or_create(
+#             empresa=empresa,
+#             nombre=datos["nombre"],
+#             defaults={
+#                 "rfc": datos["rfc"],
+#                 "correo": datos["correo"],
+#                 "telefono": datos["telefono"],
+#                 "direccion": datos["direccion"],
+#             }
+#         )
+#         print(f"{'🟢 Creado' if creado else '🟡 Actualizado'} cliente: {cliente.nombre}")
 
 
 def crear_plan_contable_completo():
