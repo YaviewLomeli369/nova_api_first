@@ -219,6 +219,13 @@ class VentaSerializer(serializers.ModelSerializer):
                 comprobante.save()
 
 
+        except Exception as e:
+            print(f"DEBUG: Error al timbrar comprobante: {e}")
+            comprobante.estado = 'ERROR'
+            comprobante.error_mensaje = str(e)
+            comprobante.save()
+            raise DRFValidationError(f"Error al timbrar comprobante: {str(e)}")
+
         # 5. Crear CuentaPorCobrar
         fecha_vencimiento = venta.fecha + timedelta(days=30)
         CuentaPorCobrar.objects.create(
