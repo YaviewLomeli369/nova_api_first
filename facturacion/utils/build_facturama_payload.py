@@ -49,8 +49,8 @@ def build_facturama_payload(comprobante):
         "CfdiType": tipo_cfdi_desde_tipo_comprobante(comprobante.tipo),
         "ExpeditionPlace": empresa.domicilio_codigo_postal or "00000",
         "PaymentConditions": venta.condiciones_pago or "Contado",
-        "PaymentMethod": comprobante.metodo_pago or "PUE",  # Pago en una sola exhibición
-        "PaymentForm": comprobante.forma_pago or "01",      # Efectivo
+        "PaymentMethod": venta.metodo_pago or "PUE",  # Pago en una sola exhibición
+        "PaymentForm": venta.forma_pago or "01",      # Efectivo
         "Currency": venta.moneda or "MXN",
         "Exportation": "01",  # No aplica exportación
         "Issuer": {

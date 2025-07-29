@@ -50,7 +50,11 @@ class ComprobanteFiscal(models.Model):
         # Otros tipos CFDI
     ]
 
-  
+    # reintentos_timbrado = models.PositiveIntegerField(default=0)
+    # max_reintentos = 3  # Puedes hacerlo campo o constante
+
+    # # Opcional: fecha del último intento
+    # fecha_ultimo_intento = models.DateTimeField(blank=True, null=True)
 
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
@@ -89,6 +93,15 @@ class ComprobanteFiscal(models.Model):
         ],
         help_text="Exportación según el catálogo SAT c_Exportacion"
     )
+    facturama_id = models.CharField(max_length=100, blank=True, null=True)
+
+    motivo_cancelacion = models.CharField(max_length=3, blank=True, null=True, choices=[
+        ('01', 'Comprobante emitido con errores con relación'),
+        ('02', 'Comprobante emitido con errores sin relación'),
+        ('03', 'No se llevó a cabo la operación'),
+        ('04', 'Operación nominativa relacionada en la factura global'),
+    ])
+    sustitucion_uuid = models.CharField(max_length=36, blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

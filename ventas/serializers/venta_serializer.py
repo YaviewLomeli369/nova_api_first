@@ -3,26 +3,23 @@ from ventas.models import Venta, DetalleVenta
 from .detalle_venta_serializer import DetalleVentaSerializer
 from inventario.models import Producto, Inventario
 from contabilidad.helpers.asientos import generar_asiento_para_venta
-from finanzas.models import CuentaPorCobrar
 from django.db import transaction
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
-from rest_framework.exceptions import ValidationError as DRFValidationError
 from django.db.models import F
 from django.conf import settings
 import base64
 from django.core.files.base import ContentFile
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError as DRFValidationError
-from decimal import Decimal, ROUND_HALF_UP
-from django.db import transaction
-from facturacion.models import MetodoPagoChoices, FormaPagoChoices
-from facturacion.models import ComprobanteFiscal
+from facturacion.models import MetodoPagoChoices, FormaPagoChoices, ComprobanteFiscal
 from facturacion.services.facturama import FacturamaService
 from facturacion.utils.build_facturama_payload import build_facturama_payload
-from contabilidad.helpers.asientos import generar_asiento_para_venta
+# from facturacion.utils.build_facturama_payload import MetodoPagoChoices
 from finanzas.models import CuentaPorCobrar
+from django.db.models import TextChoices
 
+from facturacion.services.timbrado_helpers import intentar_timbrado_comprobante
 
 def redondear_decimal(valor, decimales=2):
     if not isinstance(valor, Decimal):
@@ -46,7 +43,10 @@ class VentaSerializer(serializers.ModelSerializer):
             'fecha',
             'total',
             'estado',
-            'detalles',
+            'forma_pago',
+            'metodo_pago',
+            'condiciones_pago',
+            'detalles'
         ]
         read_only_fields = ['id', 'fecha', 'total']
 
@@ -103,9 +103,15 @@ class VentaSerializer(serializers.ModelSerializer):
         venta.total = redondear_decimal(total_calculado)
         venta.save(update_fields=['total'])
 
+        
+
         # 3. Crear ComprobanteFiscal en PENDIENTE
-        serie = 'A'  # Ejemplo, cambia por lógica real
-        folio = 100  # Ejemplo, cambia por lógica real
+        def generar_folio(empresa):
+            ultimo = ComprobanteFiscal.objects.filter(empresa=empresa, serie='A').order_by('-folio').first()
+            return (ultimo.folio + 1) if ultimo and ultimo.folio else 1
+            
+        serie = 'A'
+        folio = generar_folio(empresa)
 
 
         # Guardar primero para asegurar que comprobante.id esté disponible
@@ -134,20 +140,11 @@ class VentaSerializer(serializers.ModelSerializer):
             comprobante.estado = 'TIMBRADO'
             comprobante.fecha_timbrado = timezone.now()
 
+            comprobante.metodo_pago = venta.metodo_pago
+            comprobante.forma_pago = venta.forma_pago
+            comprobante.facturama_id = factura_id
 
-            payment_method = respuesta.get("PaymentMethod")
-            payment_form = respuesta.get("PaymentForm")
 
-            # Validar contra enums antes de asignar
-            if payment_method in MetodoPagoChoices.values:
-                comprobante.metodo_pago = payment_method
-            else:
-                comprobante.error_mensaje = f"Método de pago no válido: {payment_method}"
-
-            if payment_form in FormaPagoChoices.values:
-                comprobante.forma_pago = payment_form
-            else:
-                comprobante.error_mensaje = f"Forma de pago no válida: {payment_form}"
 
             # Detectar si es sandbox o producción
             is_sandbox = 'sandbox' in settings.FACTURAMA_API_URL.lower()
@@ -248,11 +245,6 @@ class VentaSerializer(serializers.ModelSerializer):
         except Exception as e:
             raise DRFValidationError(f"Error al generar asiento contable: {str(e)}")
 
-        import json
-        print("Payload enviado a Facturama:")
-        print(json.dumps(payload, indent=2))
-        print("Respuesta de Facturama:")
-        print(json.dumps(respuesta, indent=2))
-        print("Respuesta Facturama completa:", respuesta)
+
 
         return venta

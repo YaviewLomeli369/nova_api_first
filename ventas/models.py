@@ -66,6 +66,48 @@ class Venta(models.Model):
     condiciones_pago = models.CharField(max_length=100, blank=True, null=True, help_text="Ej: Contado, Crédito 30 días")
     moneda = models.CharField(max_length=5, blank=True, null=True, default="MXN", help_text="Ej: MXN, USD")
 
+    FORMA_PAGO_CHOICES = [
+        ('01', 'Efectivo'),
+        ('02', 'Cheque nominativo'),
+        ('03', 'Transferencia electrónica de fondos'),
+        ('04', 'Tarjeta de crédito'),
+        ('05', 'Monedero electrónico'),
+        ('06', 'Dinero electrónico'),
+        ('08', 'Vales de despensa'),
+        ('12', 'Dación en pago'),
+        ('13', 'Pago por subrogación'),
+        ('14', 'Pago por consignación'),
+        ('15', 'Condonación'),
+        ('17', 'Compensación'),
+        ('23', 'Novación'),
+        ('24', 'Confusión'),
+        ('25', 'Remisión de deuda'),
+        ('26', 'Prescripción o caducidad'),
+        ('27', 'A satisfacción del acreedor'),
+        ('28', 'Tarjeta de débito'),
+        ('29', 'Tarjeta de servicios'),
+        ('30', 'Aplicación de anticipos'),
+        ('31', 'Intermediario pagos'),
+        ('99', 'Por definir'),
+    ]
+
+    METODO_PAGO_CHOICES = [
+        ('PUE', 'Pago en una sola exhibición'),
+        ('PPD', 'Pago en parcialidades o diferido'),
+    ]
+
+    forma_pago = models.CharField(
+        max_length=2,
+        choices=FORMA_PAGO_CHOICES,
+        default='01'
+    )
+
+    metodo_pago = models.CharField(
+        max_length=3,
+        choices=METODO_PAGO_CHOICES,
+        default='PUE'
+    )
+
     def calcular_total(self):
         # Solo calcular si ya tenemos un ID (la venta ya fue guardada)
         if self.pk:
@@ -73,15 +115,6 @@ class Venta(models.Model):
         else:
             # Si no tiene ID, establecer total en 0 inicialmente
             self.total = 0
-
-    # def save(self, *args, **kwargs):
-    #     # Si es una nueva venta (no tiene ID), establecer total en 0
-    #     if not self.pk:
-    #         self.total = 0
-    #     else:
-    #         # Si ya existe, calcular el total
-    #         self.calcular_total()
-    #     super().save(*args, **kwargs)
 
     def save(self, *args, **kwargs):
         if not self.pk:
