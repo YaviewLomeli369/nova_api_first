@@ -16,7 +16,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from decimal import Decimal, ROUND_HALF_UP
 from django.db import transaction
-
+from facturacion.models import MetodoPagoChoices, FormaPagoChoices
 from facturacion.models import ComprobanteFiscal
 from facturacion.services.facturama import FacturamaService
 from facturacion.utils.build_facturama_payload import build_facturama_payload
@@ -133,6 +133,21 @@ class VentaSerializer(serializers.ModelSerializer):
             comprobante.uuid = uuid
             comprobante.estado = 'TIMBRADO'
             comprobante.fecha_timbrado = timezone.now()
+
+
+            payment_method = respuesta.get("PaymentMethod")
+            payment_form = respuesta.get("PaymentForm")
+
+            # Validar contra enums antes de asignar
+            if payment_method in MetodoPagoChoices.values:
+                comprobante.metodo_pago = payment_method
+            else:
+                comprobante.error_mensaje = f"Método de pago no válido: {payment_method}"
+
+            if payment_form in FormaPagoChoices.values:
+                comprobante.forma_pago = payment_form
+            else:
+                comprobante.error_mensaje = f"Forma de pago no válida: {payment_form}"
 
             # Detectar si es sandbox o producción
             is_sandbox = 'sandbox' in settings.FACTURAMA_API_URL.lower()
