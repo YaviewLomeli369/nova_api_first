@@ -49,7 +49,9 @@ class FacturamaService:
         headers = {
             'Content-Type': 'application/json',
         }
+        print(f"DEBUG: Descargando PDF desde: {url}")
         response = requests.get(url, auth=(FACTURAMA_USER, FACTURAMA_PASSWORD), headers=headers)
+        print(f"DEBUG: Respuesta PDF - Status: {response.status_code}, Content-Length: {len(response.content)}")
         response.raise_for_status()
         return response.content
 
@@ -59,7 +61,9 @@ class FacturamaService:
         headers = {
             'Accept': 'application/xml',
         }
+        print(f"DEBUG: Descargando XML desde: {url}")
         response = requests.get(url, auth=(FACTURAMA_USER, FACTURAMA_PASSWORD), headers=headers)
+        print(f"DEBUG: Respuesta XML - Status: {response.status_code}, Content-Length: {len(response.content)}")
         response.raise_for_status()
         return response.content
 

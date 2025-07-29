@@ -49,7 +49,7 @@ class VentaSerializer(serializers.ModelSerializer):
             'detalles',
         ]
         read_only_fields = ['id', 'fecha', 'total']
-        
+
     @transaction.atomic
     def create(self, validated_data):
         detalles_data = validated_data.pop('detalles')
@@ -107,7 +107,7 @@ class VentaSerializer(serializers.ModelSerializer):
         serie = 'A'  # Ejemplo, cambia por lógica real
         folio = 100  # Ejemplo, cambia por lógica real
 
-        
+
         # Guardar primero para asegurar que comprobante.id esté disponible
         comprobante = ComprobanteFiscal.objects.create(
             empresa=empresa,
@@ -135,32 +135,88 @@ class VentaSerializer(serializers.ModelSerializer):
             comprobante.fecha_timbrado = timezone.now()
 
             # Detectar si es sandbox o producción
-            is_sandbox = 'sandbox' in settings.FACTURAMA_API_URL
+            is_sandbox = 'sandbox' in settings.FACTURAMA_API_URL.lower()
+            print(f"DEBUG: Es sandbox: {is_sandbox}")
+            print(f"DEBUG: API URL: {settings.FACTURAMA_API_URL}")
+            print(f"DEBUG: Factura ID recibido: {factura_id}")
 
-            if is_sandbox:
-                # En sandbox, usar base64 devuelto por timbrado
-                archivo_xml_b64 = respuesta.get('ArchivoXML')
-                archivo_pdf_b64 = respuesta.get('ArchivoPDF')
+            # Intentar guardar archivos
+            archivos_guardados = False
 
-                if archivo_xml_b64:
-                    xml_data = base64.b64decode(archivo_xml_b64)
-                    comprobante.xml.save(f'cfdi_{comprobante.id}.xml', ContentFile(xml_data), save=False)
-                if archivo_pdf_b64:
-                    pdf_data = base64.b64decode(archivo_pdf_b64)
-                    comprobante.pdf.save(f'cfdi_{comprobante.id}.pdf', ContentFile(pdf_data), save=False)
-            else:
-                # En producción, descargar vía GET usando factura_id
-                archivo_pdf = FacturamaService.obtener_pdf_por_id(factura_id)
-                archivo_xml = FacturamaService.obtener_xml_por_id(factura_id)
-                comprobante.xml.save(f'cfdi_{comprobante.id}.xml', ContentFile(archivo_xml), save=False)
-                comprobante.pdf.save(f'cfdi_{comprobante.id}.pdf', ContentFile(archivo_pdf), save=False)
+            try:
+                if is_sandbox:
+                    # En sandbox, intentar usar base64 primero
+                    archivo_xml_b64 = respuesta.get('ArchivoXML')
+                    archivo_pdf_b64 = respuesta.get('ArchivoPDF')
 
-            comprobante.save()
+                    print(f"DEBUG: XML base64 presente: {bool(archivo_xml_b64)}")
+                    print(f"DEBUG: PDF base64 presente: {bool(archivo_pdf_b64)}")
 
-        except Exception as descarga_error:
-            # No marcar ERROR si el timbrado fue exitoso pero hubo problema con archivos
-            comprobante.error_mensaje = f"Timbrado correcto, pero error con archivos: {str(descarga_error)}"
-            comprobante.save()
+                    if archivo_xml_b64:
+                        try:
+                            xml_data = base64.b64decode(archivo_xml_b64)
+                            print(f"DEBUG: Guardando XML desde base64, tamaño: {len(xml_data)} bytes")
+                            comprobante.xml.save(f'cfdi_{comprobante.id}.xml', ContentFile(xml_data), save=False)
+                            archivos_guardados = True
+                        except Exception as e:
+                            print(f"DEBUG: Error guardando XML base64: {e}")
+
+                    if archivo_pdf_b64:
+                        try:
+                            pdf_data = base64.b64decode(archivo_pdf_b64)
+                            print(f"DEBUG: Guardando PDF desde base64, tamaño: {len(pdf_data)} bytes")
+                            comprobante.pdf.save(f'cfdi_{comprobante.id}.pdf', ContentFile(pdf_data), save=False)
+                            archivos_guardados = True
+                        except Exception as e:
+                            print(f"DEBUG: Error guardando PDF base64: {e}")
+
+                    # Si no hay base64 en sandbox, intentar descarga por ID
+                    if not archivo_xml_b64 or not archivo_pdf_b64:
+                        print("DEBUG: Archivos base64 no disponibles en sandbox, intentando descarga por ID")
+                        if factura_id:
+                            try:
+                                if not archivo_xml_b64:
+                                    archivo_xml = FacturamaService.obtener_xml_por_id(factura_id)
+                                    print(f"DEBUG: XML descargado, tamaño: {len(archivo_xml)} bytes")
+                                    comprobante.xml.save(f'cfdi_{comprobante.id}.xml', ContentFile(archivo_xml), save=False)
+
+                                if not archivo_pdf_b64:
+                                    archivo_pdf = FacturamaService.obtener_pdf_por_id(factura_id)
+                                    print(f"DEBUG: PDF descargado, tamaño: {len(archivo_pdf)} bytes")
+                                    comprobante.pdf.save(f'cfdi_{comprobante.id}.pdf', ContentFile(archivo_pdf), save=False)
+
+                                archivos_guardados = True
+                            except Exception as e:
+                                print(f"DEBUG: Error descargando archivos en sandbox: {e}")
+
+                else:
+                    # En producción, descargar vía GET usando factura_id
+                    print("DEBUG: Modo producción, descargando archivos por ID")
+                    if factura_id:
+                        try:
+                            archivo_xml = FacturamaService.obtener_xml_por_id(factura_id)
+                            archivo_pdf = FacturamaService.obtener_pdf_por_id(factura_id)
+
+                            print(f"DEBUG: XML descargado, tamaño: {len(archivo_xml)} bytes")
+                            print(f"DEBUG: PDF descargado, tamaño: {len(archivo_pdf)} bytes")
+
+                            comprobante.xml.save(f'cfdi_{comprobante.id}.xml', ContentFile(archivo_xml), save=False)
+                            comprobante.pdf.save(f'cfdi_{comprobante.id}.pdf', ContentFile(archivo_pdf), save=False)
+                            archivos_guardados = True
+                        except Exception as e:
+                            print(f"DEBUG: Error descargando archivos en producción: {e}")
+                            comprobante.error_mensaje = f"Error descargando archivos: {str(e)}"
+
+                print(f"DEBUG: Archivos guardados exitosamente: {archivos_guardados}")
+                print(f"DEBUG: Guardando comprobante con ID: {comprobante.id}")
+                comprobante.save()
+                print(f"DEBUG: Comprobante guardado. XML: {bool(comprobante.xml)}, PDF: {bool(comprobante.pdf)}")
+
+            except Exception as descarga_error:
+                print(f"DEBUG: Error general en manejo de archivos: {descarga_error}")
+                # No marcar ERROR si el timbrado fue exitoso pero hubo problema con archivos
+                comprobante.error_mensaje = f"Timbrado correcto, pero error con archivos: {str(descarga_error)}"
+                comprobante.save()
 
 
         # 5. Crear CuentaPorCobrar
@@ -185,5 +241,5 @@ class VentaSerializer(serializers.ModelSerializer):
         print("Respuesta de Facturama:")
         print(json.dumps(respuesta, indent=2))
         print("Respuesta Facturama completa:", respuesta)
-        
+
         return venta
