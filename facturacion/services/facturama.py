@@ -48,24 +48,52 @@ class FacturamaService:
         url = f"https://apisandbox.facturama.mx/api/Cfdi/pdf/issued/{factura_id}/"
         headers = {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
         }
         print(f"DEBUG: Descargando PDF desde: {url}")
         response = requests.get(url, auth=(FACTURAMA_USER, FACTURAMA_PASSWORD), headers=headers)
-        print(f"DEBUG: Respuesta PDF - Status: {response.status_code}, Content-Length: {len(response.content)}")
+        print(f"DEBUG: Respuesta PDF - Status: {response.status_code}")
         response.raise_for_status()
-        return response.content
+        
+        # La respuesta es un JSON con el contenido en base64
+        response_json = response.json()
+        print(f"DEBUG: JSON response keys: {response_json.keys()}")
+        
+        content_base64 = response_json.get('Content')
+        if not content_base64:
+            raise Exception("No se encontró el campo 'Content' en la respuesta del PDF")
+        
+        # Decodificar el contenido base64
+        import base64
+        pdf_content = base64.b64decode(content_base64)
+        print(f"DEBUG: PDF decodificado, tamaño: {len(pdf_content)} bytes")
+        return pdf_content
 
     @staticmethod
     def obtener_xml_por_id(factura_id):
         url = f"https://apisandbox.facturama.mx/api/Cfdi/xml/issued/{factura_id}/"
         headers = {
-            'Accept': 'application/xml',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
         }
         print(f"DEBUG: Descargando XML desde: {url}")
         response = requests.get(url, auth=(FACTURAMA_USER, FACTURAMA_PASSWORD), headers=headers)
-        print(f"DEBUG: Respuesta XML - Status: {response.status_code}, Content-Length: {len(response.content)}")
+        print(f"DEBUG: Respuesta XML - Status: {response.status_code}")
         response.raise_for_status()
-        return response.content
+        
+        # La respuesta es un JSON con el contenido en base64
+        response_json = response.json()
+        print(f"DEBUG: JSON response keys: {response_json.keys()}")
+        
+        content_base64 = response_json.get('Content')
+        if not content_base64:
+            raise Exception("No se encontró el campo 'Content' en la respuesta del XML")
+        
+        # Decodificar el contenido base64
+        import base64
+        xml_content = base64.b64decode(content_base64)
+        print(f"DEBUG: XML decodificado, tamaño: {len(xml_content)} bytes")
+        return xml_content
 
 
     # @staticmethod
