@@ -38,3 +38,48 @@ class FacturamaService:
             raise Exception(
                 f"Error al timbrar: {response.status_code} - {response.text}"
             )
+
+
+    # https://apisandbox.facturama.mx/api/Cfdi/xml/issued/4kxSOfZWU95PfTaUF4xmnw2/
+
+
+    @staticmethod
+    def obtener_pdf_por_id(factura_id):
+        url = f"https://apisandbox.facturama.mx/api/Cfdi/pdf/issued/{factura_id}/"
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        response = requests.get(url, auth=(FACTURAMA_USER, FACTURAMA_PASSWORD), headers=headers)
+        response.raise_for_status()
+        return response.content
+
+    @staticmethod
+    def obtener_xml_por_id(factura_id):
+        url = f"https://apisandbox.facturama.mx/api/Cfdi/xml/issued/{factura_id}/"
+        headers = {
+            'Accept': 'application/xml',
+        }
+        response = requests.get(url, auth=(FACTURAMA_USER, FACTURAMA_PASSWORD), headers=headers)
+        response.raise_for_status()
+        return response.content
+
+
+    # @staticmethod
+    # def obtener_pdf_por_id(factura_id):
+    #     url = f"https://apisandbox.facturama.mx/3/cfdi/{factura_id}/"
+    #     headers = {
+    #         'Content-Type': 'application/json',
+    #     }
+    #     response = requests.get(url, auth=(FACTURAMA_USER, FACTURAMA_PASSWORD), headers=headers)
+    #     response.raise_for_status()
+    #     return response.content
+
+    # @staticmethod
+    # def obtener_xml_por_id(factura_id):
+    #     url = f"https://apisandbox.facturama.mx/3/cfdi/{factura_id}/"
+    #     headers = {
+    #         'Accept': 'application/xml',
+    #     }
+    #     response = requests.get(url, auth=(FACTURAMA_USER, FACTURAMA_PASSWORD), headers=headers)
+    #     response.raise_for_status()
+    #     return response.content

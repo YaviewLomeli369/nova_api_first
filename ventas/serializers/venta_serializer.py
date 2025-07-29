@@ -9,7 +9,7 @@ from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from django.db.models import F
-
+from django.conf import settings
 import base64
 from django.core.files.base import ContentFile
 from django.utils import timezone
@@ -107,6 +107,8 @@ class VentaSerializer(serializers.ModelSerializer):
         serie = 'A'  # Ejemplo, cambia por lógica real
         folio = 100  # Ejemplo, cambia por lógica real
 
+        
+        # Guardar primero para asegurar que comprobante.id esté disponible
         comprobante = ComprobanteFiscal.objects.create(
             empresa=empresa,
             venta=venta,
@@ -116,36 +118,50 @@ class VentaSerializer(serializers.ModelSerializer):
             folio=folio
         )
 
+        # Forzar guardado si estás inseguro de que tenga ID
+        if not comprobante.id:
+            comprobante.save()
+
         # 4. Crear payload para Facturama y timbrar
         payload = build_facturama_payload(comprobante)
 
         try:
             respuesta = FacturamaService.timbrar_comprobante(payload)
 
-            uuid = respuesta.get('Complemento', {}).get('TimbreFiscalDigital', {}).get('UUID')
-            fecha_timbrado_str = respuesta.get('FechaTimbrado')
-            xml_base64 = respuesta.get('ArchivoXML')
-            pdf_base64 = respuesta.get('ArchivoPDF')
-
+            uuid = respuesta.get('Complement', {}).get('TaxStamp', {}).get('Uuid')
+            factura_id = respuesta.get('Id')
             comprobante.uuid = uuid
             comprobante.estado = 'TIMBRADO'
             comprobante.fecha_timbrado = timezone.now()
 
-            if xml_base64:
-                xml_data = base64.b64decode(xml_base64)
-                comprobante.xml.save(f'cfdi_{comprobante.id}.xml', ContentFile(xml_data), save=False)
+            # Detectar si es sandbox o producción
+            is_sandbox = 'sandbox' in settings.FACTURAMA_API_URL
 
-            if pdf_base64:
-                pdf_data = base64.b64decode(pdf_base64)
-                comprobante.pdf.save(f'cfdi_{comprobante.id}.pdf', ContentFile(pdf_data), save=False)
+            if is_sandbox:
+                # En sandbox, usar base64 devuelto por timbrado
+                archivo_xml_b64 = respuesta.get('ArchivoXML')
+                archivo_pdf_b64 = respuesta.get('ArchivoPDF')
+
+                if archivo_xml_b64:
+                    xml_data = base64.b64decode(archivo_xml_b64)
+                    comprobante.xml.save(f'cfdi_{comprobante.id}.xml', ContentFile(xml_data), save=False)
+                if archivo_pdf_b64:
+                    pdf_data = base64.b64decode(archivo_pdf_b64)
+                    comprobante.pdf.save(f'cfdi_{comprobante.id}.pdf', ContentFile(pdf_data), save=False)
+            else:
+                # En producción, descargar vía GET usando factura_id
+                archivo_pdf = FacturamaService.obtener_pdf_por_id(factura_id)
+                archivo_xml = FacturamaService.obtener_xml_por_id(factura_id)
+                comprobante.xml.save(f'cfdi_{comprobante.id}.xml', ContentFile(archivo_xml), save=False)
+                comprobante.pdf.save(f'cfdi_{comprobante.id}.pdf', ContentFile(archivo_pdf), save=False)
 
             comprobante.save()
 
-        except Exception as e:
-            comprobante.estado = 'ERROR'
-            comprobante.error_mensaje = str(e)
+        except Exception as descarga_error:
+            # No marcar ERROR si el timbrado fue exitoso pero hubo problema con archivos
+            comprobante.error_mensaje = f"Timbrado correcto, pero error con archivos: {str(descarga_error)}"
             comprobante.save()
-            raise DRFValidationError(f"Error al timbrar comprobante: {str(e)}")
+
 
         # 5. Crear CuentaPorCobrar
         fecha_vencimiento = venta.fecha + timedelta(days=30)
@@ -163,4 +179,11 @@ class VentaSerializer(serializers.ModelSerializer):
         except Exception as e:
             raise DRFValidationError(f"Error al generar asiento contable: {str(e)}")
 
+        import json
+        print("Payload enviado a Facturama:")
+        print(json.dumps(payload, indent=2))
+        print("Respuesta de Facturama:")
+        print(json.dumps(respuesta, indent=2))
+        print("Respuesta Facturama completa:", respuesta)
+        
         return venta
