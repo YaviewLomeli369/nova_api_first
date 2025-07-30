@@ -11,6 +11,8 @@ from facturacion.views.vista_previa_factura import vista_previa_pdf
 from facturacion.views.vista_previa_xml import vista_previa_xml
 from facturacion.views.reintentar_timbrado import reintentar_timbrado
 from facturacion.views.comprobante_fiscal import ComprobanteFiscalViewSet
+from facturacion.views.acuses import descargar_acuse_cancelacion
+from facturacion.views.reenviar_email_cfdi import reenviar_email_cfdi
 
 router = DefaultRouter()
 # router.register(r'comprobantes', ComprobanteFiscalViewSet, basename='comprobante')
@@ -26,6 +28,8 @@ urlpatterns = [
     path('comprobantes/<int:pk>/ver-pdf/', vista_previa_pdf, name='vista_previa_pdf'),
     path('comprobantes/<int:pk>/vista-previa-xml/', vista_previa_xml, name='vista_previa_xml'),
     path('comprobantes/<int:comprobante_id>/reintentar/', reintentar_timbrado, name='reintentar_timbrado'),
+    path('comprobantes/<uuid:uuid>/acuse-cancelacion/', descargar_acuse_cancelacion, name='descargar_acuse_cancelacion'),
+    path('comprobantes/<str:uuid>/reenviar-email/', reenviar_email_cfdi, name='reenviar_email_cfdi'),
 ]
 
 

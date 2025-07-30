@@ -4,6 +4,7 @@ from ventas.models import Venta
 from accounts.models import Usuario
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.conf import settings
 
 class TimbradoLog(models.Model):
     comprobante = models.ForeignKey('ComprobanteFiscal', on_delete=models.CASCADE, related_name='logs_timbrado')
@@ -88,6 +89,7 @@ class ComprobanteFiscal(models.Model):
     correo_enviado = models.BooleanField(default=False)  # NUEVO CAMPO
     estado_sat = models.CharField(max_length=50, blank=True, null=True)
     fecha_estado_sat = models.DateTimeField(blank=True, null=True)
+    acuse_cancelacion_xml = models.FileField(upload_to='cfdi_acuses/', null=True, blank=True)
     metodo_pago = models.CharField(
         max_length=3,
         choices=MetodoPagoChoices.choices,
@@ -149,3 +151,9 @@ class ComprobanteFiscal(models.Model):
     def __str__(self):
       venta_id = self.venta.id if self.venta else 'N/A'
       return f"{self.get_tipo_display()} {self.uuid or 'Sin UUID'} - Venta {venta_id}"
+
+# class EnvioCorreoCFDI(models.Model):
+#     comprobante = models.ForeignKey(ComprobanteFiscal, on_delete=models.CASCADE, related_name='envios')
+#     destinatario = models.EmailField()
+#     enviado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+#     fecha_envio = models.DateTimeField(auto_now_add=True)

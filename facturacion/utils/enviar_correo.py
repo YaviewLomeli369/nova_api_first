@@ -5,6 +5,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+
 def enviar_cfdi_por_correo(email_destino, comprobante):
     """
     Envía el CFDI (PDF + XML) como adjuntos al email del cliente.
