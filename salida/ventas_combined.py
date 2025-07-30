@@ -74,22 +74,89 @@ class VentasConfig(AppConfig):
 
 
 
+# --- /home/runner/workspace/ventas/utils.py ---
+import xml.etree.ElementTree as ET
+from django.core.files.base import ContentFile
+from django.utils import timezone
+
+def generar_xml_desde_comprobante(comprobante):
+    """
+    Genera un XML básico desde un objeto comprobante.
+    Ajusta esto según el estándar fiscal (ej. CFDI, UBL, etc.).
+    """
+    # Estructura básica del XML
+    root = ET.Element("Comprobante")
+    ET.SubElement(root, "UUID").text = comprobante.uuid if hasattr(comprobante, 'uuid') else "UUID-Generico"
+    ET.SubElement(root, "Fecha").text = timezone.now().isoformat()
+    ET.SubElement(root, "Total").text = str(comprobante.total)
+
+    # Agrega otros campos relevantes aquí
+    # ...
+
+    # Convierte el árbol a una cadena de bytes
+    xml_string = ET.tostring(root, encoding="utf-8", method="xml")
+
+    # Opcional: Guarda el XML en el modelo (si tiene campo FileField)
+    if hasattr(comprobante, 'archivo_xml'):
+        comprobante.archivo_xml.save(f"{comprobante.id}.xml", ContentFile(xml_string), save=True)
+
+    return xml_string
+
+
+# --- /home/runner/workspace/ventas/urls.py ---
+# ventas/urls.py
+
+from rest_framework.routers import DefaultRouter
+from django.urls import path
+from ventas.views import ClienteViewSet, VentaViewSet, DetalleVentaViewSet
+from ventas.views.dashboard import VentaDashboardAPIView  # Asegúrate de importar desde el archivo correcto
+# from ventas.views.facturar_venta import FacturarVentaAPIView  # Asegúrate que esta vista existe y está bien importada
+# Instanciamos el router
+router = DefaultRouter()
+router.register(r'costumers', ClienteViewSet)
+router.register(r'orders', VentaViewSet)
+router.register(r'details', DetalleVentaViewSet)
+
+# Añadimos el endpoint del dashboard de ventas fuera del router
+urlpatterns = router.urls + [
+    path('dashboard/', VentaDashboardAPIView.as_view(), name='venta-dashboard'),
+    # path('invoice-sale/<int:id>/', FacturarVentaAPIView.as_view(), name='facturar-venta'),
+]
+
+
+
+
 # --- /home/runner/workspace/ventas/models.py ---
 # ventas/models.py (completado)
 
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from decimal import Decimal
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 
 class Cliente(models.Model):
     empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE, related_name='clientes')
     nombre = models.CharField(max_length=200)
+    apellido_paterno = models.CharField(max_length=100, blank=True, null=True)
+    apellido_materno = models.CharField(max_length=100, blank=True, null=True)
     rfc = models.CharField(max_length=13, blank=True, null=True)
     correo = models.EmailField(blank=True, null=True)
     telefono = models.CharField(max_length=20, blank=True, null=True)
-    direccion = models.TextField(blank=True, null=True)
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
+    uso_cfdi = models.CharField(max_length=3, blank=True, null=True, help_text="Uso CFDI SAT (G03, S01, etc.)")
+    regimen_fiscal = models.CharField(max_length=3, blank=True, null=True, help_text="Régimen fiscal del receptor")
+
+    direccion_calle = models.CharField(max_length=150, blank=True, null=True)
+    direccion_num_ext = models.CharField(max_length=10, blank=True, null=True)
+    direccion_num_int = models.CharField(max_length=10, blank=True, null=True)
+    direccion_colonia = models.CharField(max_length=100, blank=True, null=True)
+    direccion_municipio = models.CharField(max_length=100, blank=True, null=True)
+    direccion_estado = models.CharField(max_length=100, blank=True, null=True)
+    direccion_pais = models.CharField(max_length=50, default='MEX')
+    direccion_codigo_postal = models.CharField(max_length=10, blank=True, null=True)
 
     class Meta:
         verbose_name = "Cliente"
@@ -98,6 +165,15 @@ class Cliente(models.Model):
         indexes = [
             models.Index(fields=['empresa', 'nombre']),
         ]
+
+    @property
+    def nombre_completo(self):
+        apellidos = ' '.join(filter(None, [self.apellido_paterno, self.apellido_materno]))
+        return f"{self.nombre} {apellidos}".strip()
+
+    def clean(self):
+        if self.rfc and self.uso_cfdi == "P01" and self.rfc != "XAXX010101000":
+            raise ValidationError("El uso CFDI 'P01' solo es válido con RFC genérico.")
 
     def __str__(self):
         return self.nombre
@@ -116,6 +192,50 @@ class Venta(models.Model):
     total = models.DecimalField(max_digits=14, decimal_places=2)
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='PENDIENTE')
     usuario = models.ForeignKey('accounts.Usuario', on_delete=models.PROTECT, related_name='ventas')
+    condiciones_pago = models.CharField(max_length=100, blank=True, null=True, help_text="Ej: Contado, Crédito 30 días")
+    moneda = models.CharField(max_length=5, blank=True, null=True, default="MXN", help_text="Ej: MXN, USD")
+
+    FORMA_PAGO_CHOICES = [
+        ('01', 'Efectivo'),
+        ('02', 'Cheque nominativo'),
+        ('03', 'Transferencia electrónica de fondos'),
+        ('04', 'Tarjeta de crédito'),
+        ('05', 'Monedero electrónico'),
+        ('06', 'Dinero electrónico'),
+        ('08', 'Vales de despensa'),
+        ('12', 'Dación en pago'),
+        ('13', 'Pago por subrogación'),
+        ('14', 'Pago por consignación'),
+        ('15', 'Condonación'),
+        ('17', 'Compensación'),
+        ('23', 'Novación'),
+        ('24', 'Confusión'),
+        ('25', 'Remisión de deuda'),
+        ('26', 'Prescripción o caducidad'),
+        ('27', 'A satisfacción del acreedor'),
+        ('28', 'Tarjeta de débito'),
+        ('29', 'Tarjeta de servicios'),
+        ('30', 'Aplicación de anticipos'),
+        ('31', 'Intermediario pagos'),
+        ('99', 'Por definir'),
+    ]
+
+    METODO_PAGO_CHOICES = [
+        ('PUE', 'Pago en una sola exhibición'),
+        ('PPD', 'Pago en parcialidades o diferido'),
+    ]
+
+    forma_pago = models.CharField(
+        max_length=2,
+        choices=FORMA_PAGO_CHOICES,
+        default='01'
+    )
+
+    metodo_pago = models.CharField(
+        max_length=3,
+        choices=METODO_PAGO_CHOICES,
+        default='PUE'
+    )
 
     def calcular_total(self):
         # Solo calcular si ya tenemos un ID (la venta ya fue guardada)
@@ -126,12 +246,8 @@ class Venta(models.Model):
             self.total = 0
 
     def save(self, *args, **kwargs):
-        # Si es una nueva venta (no tiene ID), establecer total en 0
         if not self.pk:
             self.total = 0
-        else:
-            # Si ya existe, calcular el total
-            self.calcular_total()
         super().save(*args, **kwargs)
 
     class Meta:
@@ -153,6 +269,11 @@ class DetalleVenta(models.Model):
     cantidad = models.DecimalField(max_digits=14, decimal_places=2)
     precio_unitario = models.DecimalField(max_digits=14, decimal_places=2)
 
+    @property
+    def importe(self):
+        return Decimal(self.precio_unitario) * Decimal(self.cantidad)
+
+
     def clean(self):
         if self.cantidad <= 0:
             raise ValidationError("La cantidad debe ser mayor a cero.")
@@ -169,30 +290,14 @@ class DetalleVenta(models.Model):
     def __str__(self):
         return f"{self.cantidad} x {self.producto.nombre} @ {self.precio_unitario}"
 
-
-
-
-# --- /home/runner/workspace/ventas/urls.py ---
-# ventas/urls.py
-
-from rest_framework.routers import DefaultRouter
-from django.urls import path
-from ventas.views import ClienteViewSet, VentaViewSet, DetalleVentaViewSet
-from ventas.views.dashboard import VentaDashboardAPIView  # Asegúrate de importar desde el archivo correcto
-from ventas.views.facturar_venta import FacturarVentaAPIView  # Asegúrate que esta vista existe y está bien importada
-# Instanciamos el router
-router = DefaultRouter()
-router.register(r'costumers', ClienteViewSet)
-router.register(r'orders', VentaViewSet)
-router.register(r'details', DetalleVentaViewSet)
-
-# Añadimos el endpoint del dashboard de ventas fuera del router
-urlpatterns = router.urls + [
-    path('dashboard/', VentaDashboardAPIView.as_view(), name='venta-dashboard'),
-    path('invoice-sale/<int:id>/', FacturarVentaAPIView.as_view(), name='facturar-venta'),
-]
-
-
+@receiver([post_save, post_delete], sender=DetalleVenta)
+def actualizar_total_venta(sender, instance, **kwargs):
+    venta = instance.venta
+    total = venta.detalles.aggregate(
+        total=models.Sum(models.F('precio_unitario') * models.F('cantidad'))
+    )['total'] or 0
+    venta.total = total
+    venta.save(update_fields=['total'])
 
 
 # --- /home/runner/workspace/ventas/migrations/__init__.py ---
@@ -200,7 +305,7 @@ urlpatterns = router.urls + [
 
 
 # --- /home/runner/workspace/ventas/migrations/0001_initial.py ---
-# Generated by Django 5.2.4 on 2025-07-04 22:50
+# Generated by Django 5.2.4 on 2025-07-30 17:07
 
 import django.db.models.deletion
 from django.conf import settings
@@ -223,12 +328,23 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('nombre', models.CharField(max_length=200)),
+                ('apellido_paterno', models.CharField(blank=True, max_length=100, null=True)),
+                ('apellido_materno', models.CharField(blank=True, max_length=100, null=True)),
                 ('rfc', models.CharField(blank=True, max_length=13, null=True)),
                 ('correo', models.EmailField(blank=True, max_length=254, null=True)),
                 ('telefono', models.CharField(blank=True, max_length=20, null=True)),
-                ('direccion', models.TextField(blank=True, null=True)),
                 ('creado_en', models.DateTimeField(auto_now_add=True)),
                 ('actualizado_en', models.DateTimeField(auto_now=True)),
+                ('uso_cfdi', models.CharField(blank=True, help_text='Uso CFDI SAT (G03, S01, etc.)', max_length=3, null=True)),
+                ('regimen_fiscal', models.CharField(blank=True, help_text='Régimen fiscal del receptor', max_length=3, null=True)),
+                ('direccion_calle', models.CharField(blank=True, max_length=150, null=True)),
+                ('direccion_num_ext', models.CharField(blank=True, max_length=10, null=True)),
+                ('direccion_num_int', models.CharField(blank=True, max_length=10, null=True)),
+                ('direccion_colonia', models.CharField(blank=True, max_length=100, null=True)),
+                ('direccion_municipio', models.CharField(blank=True, max_length=100, null=True)),
+                ('direccion_estado', models.CharField(blank=True, max_length=100, null=True)),
+                ('direccion_pais', models.CharField(default='MEX', max_length=50)),
+                ('direccion_codigo_postal', models.CharField(blank=True, max_length=10, null=True)),
                 ('empresa', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='clientes', to='core.empresa')),
             ],
             options={
@@ -244,6 +360,10 @@ class Migration(migrations.Migration):
                 ('fecha', models.DateTimeField(auto_now_add=True)),
                 ('total', models.DecimalField(decimal_places=2, max_digits=14)),
                 ('estado', models.CharField(choices=[('PENDIENTE', 'Pendiente'), ('COMPLETADA', 'Completada'), ('CANCELADA', 'Cancelada')], default='PENDIENTE', max_length=10)),
+                ('condiciones_pago', models.CharField(blank=True, help_text='Ej: Contado, Crédito 30 días', max_length=100, null=True)),
+                ('moneda', models.CharField(blank=True, default='MXN', help_text='Ej: MXN, USD', max_length=5, null=True)),
+                ('forma_pago', models.CharField(choices=[('01', 'Efectivo'), ('02', 'Cheque nominativo'), ('03', 'Transferencia electrónica de fondos'), ('04', 'Tarjeta de crédito'), ('05', 'Monedero electrónico'), ('06', 'Dinero electrónico'), ('08', 'Vales de despensa'), ('12', 'Dación en pago'), ('13', 'Pago por subrogación'), ('14', 'Pago por consignación'), ('15', 'Condonación'), ('17', 'Compensación'), ('23', 'Novación'), ('24', 'Confusión'), ('25', 'Remisión de deuda'), ('26', 'Prescripción o caducidad'), ('27', 'A satisfacción del acreedor'), ('28', 'Tarjeta de débito'), ('29', 'Tarjeta de servicios'), ('30', 'Aplicación de anticipos'), ('31', 'Intermediario pagos'), ('99', 'Por definir')], default='01', max_length=2)),
+                ('metodo_pago', models.CharField(choices=[('PUE', 'Pago en una sola exhibición'), ('PPD', 'Pago en parcialidades o diferido')], default='PUE', max_length=3)),
                 ('cliente', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='ventas', to='ventas.cliente')),
                 ('empresa', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='ventas', to='core.empresa')),
                 ('usuario', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='ventas', to=settings.AUTH_USER_MODEL)),
@@ -391,12 +511,23 @@ from ventas.models import Venta, DetalleVenta
 from .detalle_venta_serializer import DetalleVentaSerializer
 from inventario.models import Producto, Inventario
 from contabilidad.helpers.asientos import generar_asiento_para_venta
-from finanzas.models import CuentaPorCobrar
 from django.db import transaction
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
-from rest_framework.exceptions import ValidationError as DRFValidationError
 from django.db.models import F
+from django.conf import settings
+import base64
+from django.core.files.base import ContentFile
+from django.utils import timezone
+from rest_framework.exceptions import ValidationError as DRFValidationError
+from facturacion.models import MetodoPagoChoices, FormaPagoChoices, ComprobanteFiscal
+from facturacion.services.facturama import FacturamaService
+from facturacion.utils.build_facturama_payload import build_facturama_payload
+# from facturacion.utils.build_facturama_payload import MetodoPagoChoices
+from finanzas.models import CuentaPorCobrar
+from django.db.models import TextChoices
+
+from facturacion.services.timbrado_helpers import intentar_timbrado_comprobante
 
 def redondear_decimal(valor, decimales=2):
     if not isinstance(valor, Decimal):
@@ -420,7 +551,10 @@ class VentaSerializer(serializers.ModelSerializer):
             'fecha',
             'total',
             'estado',
-            'detalles',
+            'forma_pago',
+            'metodo_pago',
+            'condiciones_pago',
+            'detalles'
         ]
         read_only_fields = ['id', 'fecha', 'total']
 
@@ -437,28 +571,20 @@ class VentaSerializer(serializers.ModelSerializer):
         if empresa is None:
             raise DRFValidationError("El usuario no tiene una empresa asignada.")
 
+        # 1. Crear la venta
         venta = Venta(**validated_data)
         venta.usuario = usuario
         venta.empresa = empresa
         venta.save()
 
-        detalles = []
+        # 2. Crear detalles y actualizar inventario
         total_calculado = Decimal('0.00')
+        detalles = []
 
         for detalle_data in detalles_data:
-            try:
-                producto = Producto.objects.get(id=detalle_data['producto'].id)
-            except Producto.DoesNotExist:
-                raise DRFValidationError(f"Producto con id {detalle_data['producto'].id} no existe.")
-
+            producto = detalle_data['producto']
             cantidad = detalle_data.get('cantidad')
             precio_unitario = detalle_data.get('precio_unitario')
-
-            # Validaciones básicas
-            if cantidad is None or cantidad <= 0:
-                raise DRFValidationError(f"La cantidad para el producto '{producto.nombre}' debe ser mayor a cero.")
-            if precio_unitario is None or precio_unitario <= 0:
-                raise DRFValidationError(f"El precio unitario para el producto '{producto.nombre}' debe ser mayor a cero.")
 
             inventario = Inventario.objects.select_for_update().filter(
                 producto=producto,
@@ -466,15 +592,11 @@ class VentaSerializer(serializers.ModelSerializer):
             ).first()
 
             if not inventario:
-                raise DRFValidationError(
-                    f"No hay inventario disponible para el producto '{producto.nombre}'"
-                )
-            if inventario.cantidad < cantidad:
-                raise DRFValidationError(
-                    f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {inventario.cantidad}"
-                )
+                raise DRFValidationError(f"No hay inventario para el producto {producto.nombre}")
 
-            # Actualizar inventario con select_for_update para evitar race conditions
+            if inventario.cantidad < cantidad:
+                raise DRFValidationError(f"Stock insuficiente para producto {producto.nombre}")
+
             inventario.cantidad = F('cantidad') - cantidad
             inventario.save()
             inventario.refresh_from_db()
@@ -489,8 +611,41 @@ class VentaSerializer(serializers.ModelSerializer):
         venta.total = redondear_decimal(total_calculado)
         venta.save(update_fields=['total'])
 
-        # Crear CuentaPorCobrar automáticamente
-        fecha_vencimiento = venta.fecha + timedelta(days=30)  # plazo 30 días
+        
+
+        # 3. Crear ComprobanteFiscal en PENDIENTE
+        def generar_folio(empresa):
+            ultimo = ComprobanteFiscal.objects.filter(empresa=empresa, serie='A').order_by('-folio').first()
+            return (ultimo.folio + 1) if ultimo and ultimo.folio else 1
+            
+        serie = 'A'
+        folio = generar_folio(empresa)
+
+
+        # Guardar primero para asegurar que comprobante.id esté disponible
+        comprobante = ComprobanteFiscal.objects.create(
+            empresa=empresa,
+            venta=venta,
+            estado='PENDIENTE',
+            tipo='FACTURA',
+            serie=serie,
+            folio=folio
+        )
+
+        # Forzar guardado si estás inseguro de que tenga ID
+        if not comprobante.id:
+            comprobante.save()
+
+
+
+
+        try:
+            intentar_timbrado_comprobante(comprobante)
+        except Exception as e:
+            raise DRFValidationError(f"Error al timbrar comprobante: {str(e)}")
+
+        # 5. Crear CuentaPorCobrar
+        fecha_vencimiento = venta.fecha + timedelta(days=30)
         CuentaPorCobrar.objects.create(
             empresa=empresa,
             venta=venta,
@@ -499,317 +654,21 @@ class VentaSerializer(serializers.ModelSerializer):
             estado='PENDIENTE'
         )
 
+        # 6. Generar asiento contable
         try:
             generar_asiento_para_venta(venta, usuario)
         except Exception as e:
-            # Aquí puedes loggear el error o tomar alguna acción adicional
             raise DRFValidationError(f"Error al generar asiento contable: {str(e)}")
 
+
+
         return venta
-# from rest_framework import serializers
-# from ventas.models import Venta, DetalleVenta
-# from .detalle_venta_serializer import DetalleVentaSerializer
-# from inventario.models import Producto, Inventario
-# from contabilidad.models import AsientoContable, DetalleAsiento, CuentaContable
-# from django.db import transaction
-# from datetime import timedelta
-# from finanzas.models import CuentaPorCobrar
-# from decimal import Decimal, ROUND_HALF_UP
-# from contabilidad.helpers.asientos import generar_asiento_para_venta
-# from rest_framework.exceptions import ValidationError as DRFValidationError
-
-# def redondear_decimal(valor, decimales=2):
-#     if not isinstance(valor, Decimal):
-#         valor = Decimal(str(valor))
-#     return valor.quantize(Decimal('1.' + '0' * decimales), rounding=ROUND_HALF_UP)
-
-# class VentaSerializer(serializers.ModelSerializer):
-#     detalles = DetalleVentaSerializer(many=True)
-#     cliente_nombre = serializers.CharField(source='cliente.nombre', read_only=True)
-#     usuario_username = serializers.CharField(source='usuario.username', read_only=True)
-
-#     class Meta:
-#         model = Venta
-#         fields = [
-#             'id',
-#             'empresa',
-#             'cliente',
-#             'cliente_nombre',
-#             'usuario',
-#             'usuario_username',
-#             'fecha',
-#             'total',
-#             'estado',
-#             'detalles',
-#         ]
-#         read_only_fields = ['id', 'fecha', 'total']
-
-    
-
-#     @transaction.atomic
-#     def create(self, validated_data):
-#         detalles_data = validated_data.pop('detalles')
-
-#         request = self.context.get('request')
-#         usuario = request.user if request else None
-#         empresa = getattr(usuario, 'empresa', None)
-
-#         venta = Venta(**validated_data)
-#         venta.usuario = usuario
-#         venta.empresa = empresa
-#         venta.save()
-
-#         detalles = []
-#         total_calculado = 0
-
-#         for detalle_data in detalles_data:
-#             try:
-#                 producto = Producto.objects.get(id=detalle_data['producto'].id)
-#             except Producto.DoesNotExist:
-#                 raise DRFValidationError(f"Producto con id {detalle_data['producto'].id} no existe.")
-
-#             cantidad = detalle_data['cantidad']
-
-#             inventario = Inventario.objects.filter(
-#                 producto=producto,
-#                 sucursal__empresa=empresa
-#             ).first()
-
-#             if not inventario:
-#                 raise DRFValidationError(
-#                     f"No hay inventario disponible para el producto '{producto.nombre}'"
-#                 )
-#             if inventario.cantidad < cantidad:
-#                 raise DRFValidationError(
-#                     f"No hay suficiente stock para el producto '{producto.nombre}'. Disponible: {inventario.cantidad}"
-#                 )
-#             inventario.cantidad -= cantidad
-#             inventario.save()
-
-#             detalle = DetalleVenta(venta=venta, **detalle_data)
-#             detalles.append(detalle)
-#             total_calculado += cantidad * detalle_data['precio_unitario']
-
-#         DetalleVenta.objects.bulk_create(detalles)
-
-#         venta.total = total_calculado
-#         venta.save(update_fields=['total'])
-
-#         # Crear CuentaPorCobrar automáticamente
-#         fecha_vencimiento = venta.fecha + timedelta(days=30)  # plazo 30 días
-#         CuentaPorCobrar.objects.create(
-#             empresa=empresa,
-#             venta=venta,
-#             monto=total_calculado,
-#             fecha_vencimiento=fecha_vencimiento,
-#             estado='PENDIENTE'
-#         )
-
-#         try:
-#             generar_asiento_para_venta(venta, usuario)
-#         except Exception as e:
-#             # Opcional: aquí podrías revertir la venta o loggear el error
-#             raise DRFValidationError(f"Error al generar asiento contable: {str(e)}")
-
-#         return venta
-
-
-
 
 
 # --- /home/runner/workspace/ventas/views/__init__.py ---
 from .clientes import ClienteViewSet
 from .ventas import VentaViewSet
 from .detallesventa import DetalleVentaViewSet
-
-
-# --- /home/runner/workspace/ventas/views/ventas.py ---
-from rest_framework import viewsets, permissions, filters
-from django_filters.rest_framework import DjangoFilterBackend
-from ventas.models import Venta
-from ventas.serializers import VentaSerializer
-from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsVendedor
-import django_filters
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.response import Response
-
-
-# Filtros personalizados para las ventas
-class VentaFilter(django_filters.FilterSet):
-    # Filtro para el RFC del cliente
-    rfc_cliente = django_filters.CharFilter(field_name='cliente__rfc', lookup_expr='icontains', label='RFC del Cliente')
-
-    # Filtro para el nombre del producto (en los detalles de la venta)
-    nombre_producto = django_filters.CharFilter(field_name='detalles__producto__nombre', lookup_expr='icontains', label='Nombre del Producto')
-
-    # Filtros de fecha (rango de fechas)
-    fecha_inicio = django_filters.DateFilter(field_name='fecha', lookup_expr='gte', label='Fecha desde')
-    fecha_fin = django_filters.DateFilter(field_name='fecha', lookup_expr='lte', label='Fecha hasta')
-
-    # Filtro para el vendedor
-    vendedor = django_filters.CharFilter(field_name='usuario__username', lookup_expr='icontains', label='Vendedor')
-
-    # Filtro para el estado de la venta
-    estado = django_filters.ChoiceFilter(choices=Venta.ESTADO_CHOICES, label='Estado')
-
-    class Meta:
-        model = Venta
-        fields = ['empresa', 'estado', 'cliente', 'fecha_inicio', 'fecha_fin', 'rfc_cliente', 'nombre_producto', 'vendedor']
-
-
-# Clase de paginación personalizada
-class VentaPagination(PageNumberPagination):
-    page_size = 10  # Número de resultados por página
-    page_size_query_param = 'page_size'
-    max_page_size = 100  # Máximo número de resultados por página
-
-
-class VentaViewSet(viewsets.ModelViewSet):
-    """
-    CRUD para Ventas, con detalles anidados.
-    """
-    queryset = Venta.objects.all().select_related('cliente', 'usuario', 'empresa').prefetch_related('detalles__producto')
-    serializer_class = VentaSerializer
-    permission_classes = [permissions.IsAuthenticated & (IsSuperAdmin | IsEmpresaAdmin | IsVendedor)]
-    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
-    search_fields = ['cliente__nombre', 'usuario__username', 'estado']
-    filterset_class = VentaFilter  # Usamos el filtro personalizado aquí
-
-    # Configuramos la paginación
-    pagination_class = VentaPagination
-
-    # Ordenamiento por fecha o total
-    ordering_fields = ['fecha', 'total']  # Permite ordenar por fecha y total
-    ordering = ['-fecha']  # Orden por defecto: por fecha descendente
-
-    def get_queryset(self):
-        user = self.request.user
-        if user.rol.nombre == "Superadministrador":
-            return self.queryset
-        return self.queryset.filter(empresa=user.empresa)
-
-    def perform_create(self, serializer):
-        serializer.save(usuario=self.request.user)
-
-    def get_latest_sales(self):
-        """
-        Devuelve las últimas n ventas con filtros aplicados.
-        """
-        n = self.request.query_params.get('n', 10)  # Número de ventas a devolver
-        try:
-            n = int(n)
-        except ValueError:
-            n = 10  # Si no se pasa un número válido, devolver las últimas 10 ventas
-
-        # Filtrar las ventas según los parámetros de búsqueda
-        filtered_sales = self.filter_queryset(self.queryset.order_by('-fecha')[:n])
-
-        # Devuelve las ventas filtradas y limitadas
-        return filtered_sales
-
-    def list(self, request, *args, **kwargs):
-        """
-        Sobrescribimos el método `list` para agregar soporte para obtener las últimas 'n' ventas.
-        """
-        # Si se pasa el parámetro 'latest', devolver solo las últimas 'n' ventas
-        if 'latest' in self.request.query_params:
-            latest_sales = self.get_latest_sales()
-            page = self.paginate_queryset(latest_sales)
-            if page is not None:
-                serializer = self.get_serializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
-            return Response(self.get_serializer(latest_sales, many=True).data)
-
-        # Si no se pide 'latest', proceder con la lógica predeterminada
-        return super().list(request, *args, **kwargs)
-
-
-
-
-
-# from rest_framework import viewsets, permissions, filters
-# from django_filters.rest_framework import DjangoFilterBackend
-# from ventas.models import Venta, DetalleVenta
-# from ventas.serializers import VentaSerializer
-# from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsVendedor
-# import django_filters
-
-# # Filtros personalizados para las ventas
-# class VentaFilter(django_filters.FilterSet):
-#     # Filtro para el RFC del cliente
-#     rfc_cliente = django_filters.CharFilter(field_name='cliente__rfc', lookup_expr='icontains', label='RFC del Cliente')
-
-#     # Filtro para el nombre del producto (en los detalles de la venta)
-#     nombre_producto = django_filters.CharFilter(field_name='detalles__producto__nombre', lookup_expr='icontains', label='Nombre del Producto')
-
-#     # Filtros de fecha (rango de fechas)
-#     fecha_inicio = django_filters.DateFilter(field_name='fecha', lookup_expr='gte', label='Fecha desde')
-#     fecha_fin = django_filters.DateFilter(field_name='fecha', lookup_expr='lte', label='Fecha hasta')
-
-#     # Filtro para el vendedor
-#     vendedor = django_filters.CharFilter(field_name='usuario__username', lookup_expr='icontains', label='Vendedor')
-
-#     # Filtro para el estado de la venta
-#     estado = django_filters.ChoiceFilter(choices=Venta.ESTADO_CHOICES, label='Estado')
-
-#     class Meta:
-#         model = Venta
-#         fields = ['empresa', 'estado', 'cliente', 'fecha_inicio', 'fecha_fin', 'rfc_cliente', 'nombre_producto', 'vendedor']
-
-
-# class VentaViewSet(viewsets.ModelViewSet):
-#     """
-#     CRUD para Ventas, con detalles anidados.
-#     """
-#     queryset = Venta.objects.all().select_related('cliente', 'usuario', 'empresa').prefetch_related('detalles__producto')
-#     serializer_class = VentaSerializer
-#     permission_classes = [permissions.IsAuthenticated & (IsSuperAdmin | IsEmpresaAdmin | IsVendedor)]
-#     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
-#     search_fields = ['cliente__nombre', 'usuario__username', 'estado']
-#     filterset_class = VentaFilter  # Usamos el filtro personalizado aquí
-
-#     def get_queryset(self):
-#         user = self.request.user
-#         if user.rol.nombre == "Superadministrador":
-#             return self.queryset
-#         return self.queryset.filter(empresa=user.empresa)
-
-#     def perform_create(self, serializer):
-#         serializer.save(usuario=self.request.user)
-
-
-
-
-
-
-# from rest_framework import viewsets, permissions, filters
-# from django_filters.rest_framework import DjangoFilterBackend
-# from ventas.models import Venta
-# from ventas.serializers import VentaSerializer
-# from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsVendedor
-
-# class VentaViewSet(viewsets.ModelViewSet):
-#     """
-#     CRUD para Ventas, con detalles anidados.
-#     """
-#     queryset = Venta.objects.all().select_related('cliente', 'usuario', 'empresa').prefetch_related('detalles')
-#     serializer_class = VentaSerializer
-#     permission_classes = [permissions.IsAuthenticated & (IsSuperAdmin | IsEmpresaAdmin | IsVendedor)]
-#     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
-#     search_fields = ['cliente__nombre', 'usuario__username', 'estado']
-#     filterset_fields = ['empresa', 'estado', 'fecha', 'cliente']
-
-#     def get_queryset(self):
-#         user = self.request.user
-#         if user.rol.nombre == "Superadministrador":
-#             return self.queryset
-#         return self.queryset.filter(empresa=user.empresa)
-
-#     def perform_create(self, serializer):
-#         serializer.save(usuario=self.request.user)
-
-
-
 
 
 # --- /home/runner/workspace/ventas/views/detallesventa.py ---
@@ -1336,52 +1195,105 @@ class ClienteViewSet(viewsets.ModelViewSet):
 
 
 
-# --- /home/runner/workspace/ventas/views/facturar_venta.py ---
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
+# --- /home/runner/workspace/ventas/views/ventas.py ---
+from rest_framework import viewsets, permissions, filters
+from django_filters.rest_framework import DjangoFilterBackend
 from ventas.models import Venta
-from facturacion.models import ComprobanteFiscal  # Importa el modelo
-from facturacion.services.procesar import procesar_timbrado_venta
+from ventas.serializers import VentaSerializer
+from accounts.permissions import IsSuperAdmin, IsEmpresaAdmin, IsVendedor
+import django_filters
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
 
-class FacturarVentaAPIView(APIView):
-    def get(self, request, id):
+
+# Filtros personalizados para las ventas
+class VentaFilter(django_filters.FilterSet):
+    # Filtro para el RFC del cliente
+    rfc_cliente = django_filters.CharFilter(field_name='cliente__rfc', lookup_expr='icontains', label='RFC del Cliente')
+
+    # Filtro para el nombre del producto (en los detalles de la venta)
+    nombre_producto = django_filters.CharFilter(field_name='detalles__producto__nombre', lookup_expr='icontains', label='Nombre del Producto')
+
+    # Filtros de fecha (rango de fechas)
+    fecha_inicio = django_filters.DateFilter(field_name='fecha', lookup_expr='gte', label='Fecha desde')
+    fecha_fin = django_filters.DateFilter(field_name='fecha', lookup_expr='lte', label='Fecha hasta')
+
+    # Filtro para el vendedor
+    vendedor = django_filters.CharFilter(field_name='usuario__username', lookup_expr='icontains', label='Vendedor')
+
+    # Filtro para el estado de la venta
+    estado = django_filters.ChoiceFilter(choices=Venta.ESTADO_CHOICES, label='Estado')
+
+    class Meta:
+        model = Venta
+        fields = ['empresa', 'estado', 'cliente', 'fecha_inicio', 'fecha_fin', 'rfc_cliente', 'nombre_producto', 'vendedor']
+
+
+# Clase de paginación personalizada
+class VentaPagination(PageNumberPagination):
+    page_size = 10  # Número de resultados por página
+    page_size_query_param = 'page_size'
+    max_page_size = 100  # Máximo número de resultados por página
+
+
+class VentaViewSet(viewsets.ModelViewSet):
+    """
+    CRUD para Ventas, con detalles anidados.
+    """
+    queryset = Venta.objects.all().select_related('cliente', 'usuario', 'empresa').prefetch_related('detalles__producto')
+    serializer_class = VentaSerializer
+    permission_classes = [permissions.IsAuthenticated & (IsSuperAdmin | IsEmpresaAdmin | IsVendedor)]
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    search_fields = ['cliente__nombre', 'usuario__username', 'estado']
+    filterset_class = VentaFilter  # Usamos el filtro personalizado aquí
+
+    # Configuramos la paginación
+    pagination_class = VentaPagination
+
+    # Ordenamiento por fecha o total
+    ordering_fields = ['fecha', 'total']  # Permite ordenar por fecha y total
+    ordering = ['-fecha']  # Orden por defecto: por fecha descendente
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.rol.nombre == "Superadministrador":
+            return self.queryset
+        return self.queryset.filter(empresa=user.empresa)
+
+    def perform_create(self, serializer):
+        serializer.save(usuario=self.request.user)
+
+    def get_latest_sales(self):
+        """
+        Devuelve las últimas n ventas con filtros aplicados.
+        """
+        n = self.request.query_params.get('n', 10)  # Número de ventas a devolver
         try:
-            venta = Venta.objects.get(pk=id)
-        except Venta.DoesNotExist:
-            return Response({'error': 'Venta no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+            n = int(n)
+        except ValueError:
+            n = 10  # Si no se pasa un número válido, devolver las últimas 10 ventas
 
-        # Verificar si ya existe un comprobante para esta venta
-        comprobante_existente = ComprobanteFiscal.objects.filter(venta=venta).first()
+        # Filtrar las ventas según los parámetros de búsqueda
+        filtered_sales = self.filter_queryset(self.queryset.order_by('-fecha')[:n])
 
-        if comprobante_existente:
-            # Ya existe un comprobante, devolver info sin crear uno nuevo
-            if comprobante_existente.estado == "TIMBRADO":
-                return Response({
-                    "message": "Factura ya generada anteriormente",
-                    "uuid": comprobante_existente.uuid,
-                    "venta": venta.id,
-                    "comprobante_id": comprobante_existente.id
-                }, status=status.HTTP_200_OK)
-            else:
-                return Response({
-                    "message": "Comprobante existente con error",
-                    "error": comprobante_existente.error_mensaje
-                }, status=status.HTTP_400_BAD_REQUEST)
+        # Devuelve las ventas filtradas y limitadas
+        return filtered_sales
 
-        # No existe comprobante, proceder a timbrar y crear uno nuevo
-        comprobante = procesar_timbrado_venta(venta)
+    def list(self, request, *args, **kwargs):
+        """
+        Sobrescribimos el método `list` para agregar soporte para obtener las últimas 'n' ventas.
+        """
+        # Si se pasa el parámetro 'latest', devolver solo las últimas 'n' ventas
+        if 'latest' in self.request.query_params:
+            latest_sales = self.get_latest_sales()
+            page = self.paginate_queryset(latest_sales)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            return Response(self.get_serializer(latest_sales, many=True).data)
 
-        if comprobante.estado == "TIMBRADO":
-            return Response({
-                "message": "Factura generada correctamente",
-                "uuid": comprobante.uuid,
-                "venta": venta.id,
-                "comprobante_id": comprobante.id
-            }, status=status.HTTP_200_OK) 
-        else:
-            return Response({
-                "message": "Error al timbrar",
-                "error": comprobante.error_mensaje
-            }, status=status.HTTP_400_BAD_REQUEST)
+        # Si no se pide 'latest', proceder con la lógica predeterminada
+        return super().list(request, *args, **kwargs)
+
+
 

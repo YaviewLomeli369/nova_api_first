@@ -67,8 +67,8 @@ def build_facturama_payload(comprobante):
         },
         "Items": items,
     }
-    print("Payload que se enviará a Facturama:")
-    print(json.dumps(payload, indent=4, ensure_ascii=False))
+    # print("Payload que se enviará a Facturama:")
+    # print(json.dumps(payload, indent=4, ensure_ascii=False))
 
 
     return payload

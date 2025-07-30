@@ -7,6 +7,8 @@ from facturacion.views.cancelar_factura import cancelar_cfdi
 from facturacion.views.validaciones import validar_datos_fiscales_view
 # from facturacion.utils.validaciones import validar_datos_fiscales
 from facturacion.views.timbrado import TimbradoLogListView
+from facturacion.views.vista_previa_factura import vista_previa_pdf
+
 
 router = DefaultRouter()
 # router.register(r'comprobantes', ComprobanteFiscalViewSet, basename='comprobante')
@@ -18,4 +20,5 @@ urlpatterns = [
     path('cancelar-cfdi/<str:uuid>/', cancelar_cfdi, name='cancelar_cfdi'),
     path('validar/<int:venta_id>/', validar_datos_fiscales_view, name='validar-datos-fiscales'),
     path('comprobantes/<int:comprobante_id>/logs-timbrado/', TimbradoLogListView.as_view(), name='logs-timbrado'),
+    path('comprobantes/<int:pk>/ver-pdf/', vista_previa_pdf, name='vista_previa_pdf'),
 ]

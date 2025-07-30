@@ -85,6 +85,7 @@ class ComprobanteFiscal(models.Model):
     tipo = models.CharField(max_length=20, choices=TIPOS_COMPROBANTE, default='FACTURA')
     serie = models.CharField(max_length=10, blank=True, null=True)
     folio = models.PositiveIntegerField(null=True, blank=True)
+    correo_enviado = models.BooleanField(default=False)  # NUEVO CAMPO
     metodo_pago = models.CharField(
         max_length=3,
         choices=MetodoPagoChoices.choices,
