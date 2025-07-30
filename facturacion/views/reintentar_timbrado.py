@@ -14,7 +14,7 @@ def reintentar_timbrado(request, comprobante_id):
         return Response({"error": "Comprobante no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
     if comprobante.estado == 'TIMBRADO':
-        return Response({"message": "Comprobante ya está timbrado."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "Comprobante ya está timbrado."}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         intentar_timbrado_comprobante(comprobante)

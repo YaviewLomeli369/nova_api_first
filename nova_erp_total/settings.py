@@ -22,6 +22,7 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 import sentry_sdk
+import base64
 
 sentry_sdk.init(
     dsn=
@@ -100,6 +101,11 @@ FACTURAMA_USER = "EKU9003173C9222"
 FACTURAMA_PASSWORD = "Losy990209bn7"
 # FACTURAMA_API_URL = "https://apisandbox.facturama.mx/3/cfdis/3.3/"
 FACTURAMA_API_URL = "https://apisandbox.facturama.mx/3/cfdis"
+
+# FACTURAMA_API_URL = "https://api.facturama.mx"  # o sandbox si estás probando
+# FACTURAMA_CREDENTIALS = f"<Base64 {FACTURAMA_USER}:{FACTURAMA_PASSWORD}>"
+FACTURAMA_CREDENTIALS = base64.b64encode(f"{FACTURAMA_USER}:{FACTURAMA_PASSWORD}".encode()).decode()
+
 
 INSTALLED_APPS += ['django_filters', 'drf_spectacular']
 
@@ -311,18 +317,6 @@ SECURE_HSTS_PRELOAD = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
-# 🧪 3.4. ¿Cómo comprobar que estás protegido?
-# Usa curl -I o Postman para ver las cabeceras HTTP de tus respuestas.
-
-# Debes ver:
-
-# X-Frame-Options: DENY
-
-# X-Content-Type-Options: nosniff
-
-# X-XSS-Protection: 1; mode=block (si es compatible)
-
-# Referrer-Policy: same-origin
 
 # Permite solo tu frontend (React, Vue, etc.)
 CORS_ALLOWED_ORIGINS = [
@@ -346,45 +340,7 @@ CORS_ALLOW_HEADERS = [
     "user-agent",
 ]
 
-# ✔️ Checklist de seguridad – Módulo ACCOUNTS – Nova ERP
 
-# ✅ PASO 1: JWT y autenticación
-# - [x] JWT con tiempo de vida corto (10 min access)
-# - [x] Refresh con rotación y blacklist
-# - [x] Login con respuesta especial si MFA activo
-
-# ✅ PASO 2: MFA (TOTP)
-# - [x] Activación y desactivación de MFA con código
-# - [x] Login bloqueado hasta validar MFA si está activo
-# - [x] MFA también requerido en recuperación de contraseña
-
-# ✅ PASO 3: CORS, CSRF y cabeceras HTTP
-# - [x] CSRF completamente deshabilitado (API only)
-# - [x] CORS solo permite frontend oficial
-# - [x] Headers HTTP seguros (X-Frame, XSS, etc)
-
-# ✅ PASO 4: Auditoría de eventos
-# - [x] Login/Logout registrados
-# - [x] Fallos de login y MFA registrados
-# - [x] Reset de contraseña registrado
-# - [x] Activación MFA, exportaciones CSV registrados
-
-# ✅ PASO 5: Rate limiting y throttling
-# - [x] Límite por usuario: 100/min
-# - [x] Límite por IP anónima: 10/min
-# - [x] Protección contra fuerza bruta en login/reset
-
-# ✅ PASO 6: Logs, Sentry y WAF
-# - [x] Logs estructurados guardados en archivo
-# - [x] Integración con Sentry (monitoreo de errores)
-# - [ ] WAF (Cloudflare, Replit Shield o VPS) habilitado
-# - [ ] Alertas automáticas para eventos críticos
-
-# ⚠️ Verificar antes de producción:
-# - [ ] `.env` con variables sensibles fuera del repo
-# - [ ] HTTPS forzado en despliegue
-# - [ ] Rotación periódica de claves JWT
-# - [ ] Endpoint de salud (`/api/ping/`) sin info sensible
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'

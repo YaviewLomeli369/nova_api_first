@@ -86,6 +86,8 @@ class ComprobanteFiscal(models.Model):
     serie = models.CharField(max_length=10, blank=True, null=True)
     folio = models.PositiveIntegerField(null=True, blank=True)
     correo_enviado = models.BooleanField(default=False)  # NUEVO CAMPO
+    estado_sat = models.CharField(max_length=50, blank=True, null=True)
+    fecha_estado_sat = models.DateTimeField(blank=True, null=True)
     metodo_pago = models.CharField(
         max_length=3,
         choices=MetodoPagoChoices.choices,

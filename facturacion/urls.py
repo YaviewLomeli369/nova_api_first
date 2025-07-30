@@ -8,10 +8,13 @@ from facturacion.views.validaciones import validar_datos_fiscales_view
 # from facturacion.utils.validaciones import validar_datos_fiscales
 from facturacion.views.timbrado import TimbradoLogListView
 from facturacion.views.vista_previa_factura import vista_previa_pdf
-
+from facturacion.views.vista_previa_xml import vista_previa_xml
+from facturacion.views.reintentar_timbrado import reintentar_timbrado
+from facturacion.views.comprobante_fiscal import ComprobanteFiscalViewSet
 
 router = DefaultRouter()
 # router.register(r'comprobantes', ComprobanteFiscalViewSet, basename='comprobante')
+router.register(r'comprobantes', ComprobanteFiscalViewSet, basename='comprobantes')
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -21,4 +24,9 @@ urlpatterns = [
     path('validar/<int:venta_id>/', validar_datos_fiscales_view, name='validar-datos-fiscales'),
     path('comprobantes/<int:comprobante_id>/logs-timbrado/', TimbradoLogListView.as_view(), name='logs-timbrado'),
     path('comprobantes/<int:pk>/ver-pdf/', vista_previa_pdf, name='vista_previa_pdf'),
+    path('comprobantes/<int:pk>/vista-previa-xml/', vista_previa_xml, name='vista_previa_xml'),
+    path('comprobantes/<int:comprobante_id>/reintentar/', reintentar_timbrado, name='reintentar_timbrado'),
 ]
+
+
+
