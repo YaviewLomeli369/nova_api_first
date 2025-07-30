@@ -50,11 +50,11 @@ class ComprobanteFiscal(models.Model):
         # Otros tipos CFDI
     ]
 
-    # reintentos_timbrado = models.PositiveIntegerField(default=0)
-    # max_reintentos = 3  # Puedes hacerlo campo o constante
+    reintentos_timbrado = models.PositiveIntegerField(default=0)
+    max_reintentos = 3  # Puedes hacerlo campo o constante
 
-    # # Opcional: fecha del último intento
-    # fecha_ultimo_intento = models.DateTimeField(blank=True, null=True)
+    # Opcional: fecha del último intento
+    fecha_ultimo_intento = models.DateTimeField(blank=True, null=True)
 
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
