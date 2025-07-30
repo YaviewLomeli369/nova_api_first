@@ -2,7 +2,23 @@ from django.db import models
 from core.models import Empresa
 from ventas.models import Venta
 from accounts.models import Usuario
+from django.utils import timezone
 from django.core.exceptions import ValidationError
+
+class TimbradoLog(models.Model):
+    comprobante = models.ForeignKey('ComprobanteFiscal', on_delete=models.CASCADE, related_name='logs_timbrado')
+    fecha_intento = models.DateTimeField(default=timezone.now)
+    exito = models.BooleanField(default=False)
+    mensaje_error = models.TextField(blank=True, null=True)
+    uuid_obtenido = models.CharField(max_length=36, blank=True, null=True)
+    facturama_id = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        ordering = ['-fecha_intento']
+
+    def __str__(self):
+        status = "Éxito" if self.exito else "Error"
+        return f"{status} - {self.fecha_intento} - Comprobante {self.comprobante.id}"
 
 class MetodoPagoChoices(models.TextChoices):
     PUE = 'PUE', 'Pago en una sola exhibición'

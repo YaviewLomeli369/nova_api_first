@@ -1,11 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from facturacion.views.comprobantes import TimbrarComprobanteAPIView
+# from facturacion.views.comprobantes import TimbrarComprobanteAPIView
 # from facturacion.views.comprobantes import ComprobanteFiscalViewSet
 from facturacion.views.lista_comprobantes import ComprobanteFiscalListView
 from facturacion.views.cancelar_factura import cancelar_cfdi
 from facturacion.views.validaciones import validar_datos_fiscales_view
-from facturacion.utils.validaciones import validar_datos_fiscales
+# from facturacion.utils.validaciones import validar_datos_fiscales
+from facturacion.views.timbrado import TimbradoLogListView
 
 router = DefaultRouter()
 # router.register(r'comprobantes', ComprobanteFiscalViewSet, basename='comprobante')
@@ -16,4 +17,5 @@ urlpatterns = [
     path('comprobantes/', ComprobanteFiscalListView.as_view(), name='comprobante-fiscal-list'),
     path('cancelar-cfdi/<str:uuid>/', cancelar_cfdi, name='cancelar_cfdi'),
     path('validar/<int:venta_id>/', validar_datos_fiscales_view, name='validar-datos-fiscales'),
+    path('comprobantes/<int:comprobante_id>/logs-timbrado/', TimbradoLogListView.as_view(), name='logs-timbrado'),
 ]
