@@ -74,8 +74,8 @@ def intentar_timbrado_comprobante(comprobante: ComprobanteFiscal, max_reintentos
 
         # Enviar correo con CFDI adjunto
         try:
-            cliente_email = comprobante.venta.cliente.email
-            cliente_email_2 = "yaview.lomeli@gmail.com" #comprobante.venta.cliente.email
+            cliente_email = comprobante.venta.cliente.correo
+            cliente_email_2 = "yaview.lomeli@gmail.com"
 
             if cliente_email:
                 enviar_cfdi_por_correo(cliente_email, comprobante)
