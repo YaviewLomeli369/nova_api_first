@@ -2,9 +2,19 @@ from rest_framework import serializers
 from inventario.models import MovimientoInventario
 
 class MovimientoInventarioSerializer(serializers.ModelSerializer):
+    producto_nombre = serializers.CharField(source='inventario.producto.nombre', read_only=True)
+    producto_codigo = serializers.CharField(source='inventario.producto.codigo', read_only=True)
+    sucursal_nombre = serializers.CharField(source='inventario.sucursal.nombre', read_only=True)
+    usuario_username = serializers.CharField(source='usuario.username', read_only=True)
+    tipo_movimiento_display = serializers.CharField(source='get_tipo_movimiento_display', read_only=True)
+    
     class Meta:
         model = MovimientoInventario
-        fields = '__all__'
+        fields = [
+            'id', 'tipo_movimiento', 'tipo_movimiento_display', 'cantidad', 'fecha',
+            'inventario', 'usuario', 'producto_nombre', 'producto_codigo', 
+            'sucursal_nombre', 'usuario_username'
+        ]
 
     def validate(self, data):
         producto = data['producto']

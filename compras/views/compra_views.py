@@ -321,9 +321,19 @@ class CompraRecepcionParcialAPIView(APIView):
                 lote = detalle.lote or None
                 vencimiento = detalle.fecha_vencimiento or None
 
+                # Verificar que el usuario tiene sucursal actual
+                sucursal_usuario = request.user.sucursal_actual
+                if not sucursal_usuario:
+                    resultados.append({
+                        'detalle_id': detalle_id,
+                        'status': 'error',
+                        'message': 'Usuario no tiene sucursal actual asignada'
+                    })
+                    continue
+
                 inventario, _ = Inventario.objects.select_for_update().get_or_create(
                     producto=detalle.producto,
-                    sucursal=compra.usuario.sucursal_actual,
+                    sucursal=sucursal_usuario,
                     lote=lote,
                     fecha_vencimiento=vencimiento,
                     defaults={'cantidad': 0}
