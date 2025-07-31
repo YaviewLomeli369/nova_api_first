@@ -24,14 +24,13 @@ class ReporteUtilidadPorProductoView(APIView):
             fecha_fin = hoy
 
         empresa = request.user.empresa_actual or request.user.empresa_set.first()
-        sucursal = getattr(request.user, "sucursal_actual", None)
-        sucursal_str = getattr(request.user, "sucursal_actual", None)
         sucursal = None
+        sucursal_str = getattr(request.user, "sucursal_actual", None)
 
         if sucursal_str:
             try:
-                # Intenta recuperar la sucursal por nombre, puedes usar otro campo si es necesario
-                sucursal = Sucursal.objects.get(nombre=sucursal_str)
+                # Intenta recuperar la sucursal por nombre
+                sucursal = Sucursal.objects.get(nombre=sucursal_str, empresa=empresa)
             except Sucursal.DoesNotExist:
                 # Manejar sucursal no encontrada, puedes dejarla en None
                 pass

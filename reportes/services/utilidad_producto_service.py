@@ -8,13 +8,19 @@ from django.utils.timezone import make_aware
 def reporte_utilidad_por_producto(fecha_inicio, fecha_fin, empresa, sucursal=None):
     # Convertir fechas si vienen como string
     if isinstance(fecha_inicio, str):
-        fecha_inicio = make_aware(datetime.fromisoformat(fecha_inicio))
+        fecha_inicio = datetime.fromisoformat(fecha_inicio).date()
     if isinstance(fecha_fin, str):
-        fecha_fin = make_aware(datetime.fromisoformat(fecha_fin))
+        fecha_fin = datetime.fromisoformat(fecha_fin).date()
+    
+    # Si las fechas son objetos date, convertir a datetime para el rango
+    if hasattr(fecha_inicio, 'date') and callable(fecha_inicio.date):
+        fecha_inicio = fecha_inicio.date()
+    if hasattr(fecha_fin, 'date') and callable(fecha_fin.date):
+        fecha_fin = fecha_fin.date()
 
     # Base queryset: filtrar por empresa y fechas
     qs = DetalleVenta.objects.filter(
-        venta__fecha__range=(fecha_inicio, fecha_fin),
+        venta__fecha__date__range=(fecha_inicio, fecha_fin),
         venta__empresa=empresa,
         venta__estado='COMPLETADA',  # Muy importante
     )
