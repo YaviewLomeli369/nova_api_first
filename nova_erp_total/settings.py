@@ -91,6 +91,7 @@ INSTALLED_APPS = [
     'documentos',
     'core',
     'facturacion',
+    'reportes',
 
     # REST Framework y JWT
     'rest_framework',
