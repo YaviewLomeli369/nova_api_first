@@ -28,6 +28,8 @@ from contabilidad.helpers.asientos import generar_asiento_para_compra
 import django_filters  # Asegúrate de que esta línea esté presente
 
 from finanzas.models import CuentaPorPagar
+from django.db import transaction
+from datetime import timedelta
 
 
 
@@ -47,15 +49,19 @@ class CompraReceiveView(APIView):
                 if cantidad_pendiente <= 0:
                     continue  # Ya recibido, no sumar más
 
-                inventario, _ = Inventario.objects.select_for_update().get_or_create(
+                inventario, creado = Inventario.objects.select_for_update().get_or_create(
                     producto=detalle.producto,
                     sucursal=compra.usuario.sucursal_actual,
                     lote=detalle.lote or None,
                     fecha_vencimiento=detalle.fecha_vencimiento or None,
                     defaults={"cantidad": 0}
                 )
+                
+                cantidad_anterior = inventario.cantidad
                 inventario.cantidad += cantidad_pendiente
                 inventario.save()
+                
+                print(f"DEBUG: CompraReceiveView - Producto: {detalle.producto.nombre}, Cantidad anterior: {cantidad_anterior}, Cantidad agregada: {cantidad_pendiente}, Cantidad final: {inventario.cantidad}")
 
                 MovimientoInventario.objects.create(
                     inventario=inventario,
@@ -101,22 +107,38 @@ class ReceivePurchase(APIView):
             raise ValidationError("El usuario no tiene una sucursal asignada.")
 
         # Actualizar el stock de los productos en inventario
-        for detalle in compra.detalles.all():
-            producto = detalle.producto
-            cantidad = detalle.cantidad
+        with transaction.atomic():
+            for detalle in compra.detalles.all():
+                producto = detalle.producto
+                cantidad = detalle.cantidad
 
-            # Obtener el inventario para esa sucursal, lote y producto
-            inventario, creado = Inventario.objects.get_or_create(
-                producto=producto,
-                sucursal=sucursal,  # Sucursal obtenida del usuario
-                lote=detalle.lote,
-                fecha_vencimiento=detalle.fecha_vencimiento,
-                defaults={'cantidad': 0}
-            )
+                # Obtener el inventario para esa sucursal, lote y producto
+                inventario, creado = Inventario.objects.select_for_update().get_or_create(
+                    producto=producto,
+                    sucursal=sucursal,  # Sucursal obtenida del usuario
+                    lote=detalle.lote,
+                    fecha_vencimiento=detalle.fecha_vencimiento,
+                    defaults={'cantidad': 0}
+                )
 
-            # Incrementar la cantidad en el inventario
-            inventario.cantidad += cantidad
-            inventario.save()
+                # Incrementar la cantidad en el inventario
+                inventario.cantidad += cantidad
+                inventario.save()
+                
+                print(f"DEBUG: Inventario actualizado - Producto: {producto.nombre}, Cantidad agregada: {cantidad}, Cantidad total: {inventario.cantidad}")
+
+                # Crear movimiento de inventario
+                MovimientoInventario.objects.create(
+                    inventario=inventario,
+                    tipo_movimiento='entrada',
+                    cantidad=cantidad,
+                    fecha=timezone.now(),
+                    usuario=request.user
+                )
+                
+                # Actualizar cantidad recibida en el detalle
+                detalle.cantidad_recibida = cantidad
+                detalle.save()
 
         return Response({"message": "Compra recibida y stock actualizado."}, status=status.HTTP_200_OK)
 
@@ -213,7 +235,13 @@ class CompraViewSet(viewsets.ModelViewSet):
         return Compra.objects.none()
 
     def perform_create(self, serializer):
-        serializer.save()  # sin lógica extra aquí
+        usuario = self.request.user
+        empresa = usuario.empresa
+        if not getattr(usuario, 'sucursal_actual', None):
+            raise serializers.ValidationError("El usuario no tiene una sucursal asignada.")
+
+        with transaction.atomic():
+            compra = serializer.save(usuario=usuario, empresa=empresa)
         # usuario = self.request.user
         # empresa = usuario.empresa
         # if not getattr(usuario, 'sucursal_actual', None):
@@ -331,16 +359,22 @@ class CompraRecepcionParcialAPIView(APIView):
                     })
                     continue
 
-                inventario, _ = Inventario.objects.select_for_update().get_or_create(
+                # Buscar o crear inventario
+                inventario, creado = Inventario.objects.select_for_update().get_or_create(
                     producto=detalle.producto,
                     sucursal=sucursal_usuario,
                     lote=lote,
                     fecha_vencimiento=vencimiento,
                     defaults={'cantidad': 0}
                 )
+                
+                # Actualizar cantidad
                 inventario.cantidad += recibido_real
                 inventario.save()
+                
+                print(f"DEBUG: Inventario actualizado - Producto: {detalle.producto.nombre}, Cantidad anterior: {inventario.cantidad - recibido_real}, Nueva cantidad: {inventario.cantidad}")
 
+                # Crear movimiento de inventario
                 MovimientoInventario.objects.create(
                     inventario=inventario,
                     tipo_movimiento='entrada',
@@ -395,26 +429,35 @@ class CompraCancelarAPIView(APIView):
                 for detalle in compra.detalles.all():
                     if detalle.cantidad_recibida > 0:
                         # Ajustar inventario y registrar movimiento de salida (devolución)
-                        inventario = Inventario.objects.filter(
-                            producto=detalle.producto,
-                            sucursal=compra.usuario.sucursal_actual,
-                            lote=detalle.lote,
-                            fecha_vencimiento=detalle.fecha_vencimiento
-                        ).first()
-
-                        if inventario:
-                            # Restar del inventario lo recibido
-                            inventario.cantidad -= detalle.cantidad_recibida
-                            inventario.save()
-
-                            # Registrar el movimiento como salida (devolución)
-                            MovimientoInventario.objects.create(
-                                inventario=inventario,
-                                tipo_movimiento='salida',  # Salida porque es una devolución
-                                cantidad=detalle.cantidad_recibida,
-                                fecha=timezone.now(),
-                                usuario=request.user
+                        try:
+                            inventario = Inventario.objects.select_for_update().get(
+                                producto=detalle.producto,
+                                sucursal=compra.usuario.sucursal_actual,
+                                lote=detalle.lote,
+                                fecha_vencimiento=detalle.fecha_vencimiento
                             )
+                            
+                            # Verificar que hay suficiente inventario para restar
+                            if inventario.cantidad >= detalle.cantidad_recibida:
+                                # Restar del inventario lo recibido
+                                inventario.cantidad -= detalle.cantidad_recibida
+                                inventario.save()
+                                
+                                print(f"DEBUG: Cancelación - Inventario ajustado - Producto: {detalle.producto.nombre}, Cantidad restada: {detalle.cantidad_recibida}, Cantidad final: {inventario.cantidad}")
+
+                                # Registrar el movimiento como salida (devolución)
+                                MovimientoInventario.objects.create(
+                                    inventario=inventario,
+                                    tipo_movimiento='salida',  # Salida porque es una devolución
+                                    cantidad=detalle.cantidad_recibida,
+                                    fecha=timezone.now(),
+                                    usuario=request.user
+                                )
+                            else:
+                                print(f"WARNING: No hay suficiente inventario para restar. Disponible: {inventario.cantidad}, Requerido: {detalle.cantidad_recibida}")
+                                
+                        except Inventario.DoesNotExist:
+                            print(f"WARNING: No se encontró inventario para el producto {detalle.producto.nombre}")
 
                         # Resetear cantidad recibida a 0
                         detalle.cantidad_recibida = 0
