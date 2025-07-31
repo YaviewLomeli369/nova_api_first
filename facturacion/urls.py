@@ -13,10 +13,12 @@ from facturacion.views.reintentar_timbrado import reintentar_timbrado
 from facturacion.views.comprobante_fiscal import ComprobanteFiscalViewSet
 from facturacion.views.acuses import descargar_acuse_cancelacion
 from facturacion.views.reenviar_email_cfdi import reenviar_email_cfdi
+from facturacion.views.envio_cfdi_viewset import EnvioCorreoCFDIViewSet
 
 router = DefaultRouter()
 # router.register(r'comprobantes', ComprobanteFiscalViewSet, basename='comprobante')
 router.register(r'comprobantes', ComprobanteFiscalViewSet, basename='comprobantes')
+router.register(r'envios', EnvioCorreoCFDIViewSet, basename='envios-cfdi')
 
 urlpatterns = [
     path('', include(router.urls)),

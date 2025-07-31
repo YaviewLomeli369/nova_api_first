@@ -8,11 +8,16 @@ from facturacion.models import ComprobanteFiscal
 from facturacion.serializers.comprobante_fiscal import ComprobanteFiscalSerializer
 from facturacion.services.consultar_estado_cfdi import consultar_estado_cfdi
 
+from rest_framework import filters
+from django_filters.rest_framework import DjangoFilterBackend
+from facturacion.filters import ComprobanteFiscalFilter  # si lo pones en un archivo filters.py
 
 class ComprobanteFiscalViewSet(viewsets.ModelViewSet):
     queryset = ComprobanteFiscal.objects.all()
     serializer_class = ComprobanteFiscalSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = ComprobanteFiscalFilter  # Usamos el FilterSet personalizado
 
     @action(detail=True, methods=["get"])
     def actualizar_estado_sat(self, request, pk=None):

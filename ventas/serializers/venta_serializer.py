@@ -132,7 +132,8 @@ class VentaSerializer(serializers.ModelSerializer):
 
 
         try:
-            intentar_timbrado_comprobante(comprobante)
+            # intentar_timbrado_comprobante(comprobante)
+            intentar_timbrado_comprobante(comprobante, request=request)
         except Exception as e:
             raise DRFValidationError(f"Error al timbrar comprobante: {str(e)}")
 

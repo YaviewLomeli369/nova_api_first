@@ -152,8 +152,8 @@ class ComprobanteFiscal(models.Model):
       venta_id = self.venta.id if self.venta else 'N/A'
       return f"{self.get_tipo_display()} {self.uuid or 'Sin UUID'} - Venta {venta_id}"
 
-# class EnvioCorreoCFDI(models.Model):
-#     comprobante = models.ForeignKey(ComprobanteFiscal, on_delete=models.CASCADE, related_name='envios')
-#     destinatario = models.EmailField()
-#     enviado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
-#     fecha_envio = models.DateTimeField(auto_now_add=True)
+class EnvioCorreoCFDI(models.Model):
+    comprobante = models.ForeignKey(ComprobanteFiscal, on_delete=models.CASCADE, related_name='envios')
+    destinatario = models.EmailField()
+    enviado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    fecha_envio = models.DateTimeField(auto_now_add=True)

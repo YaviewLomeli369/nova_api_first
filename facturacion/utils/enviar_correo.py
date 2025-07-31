@@ -44,6 +44,7 @@ def enviar_cfdi_por_correo(email_destino, comprobante):
 
         email.send(fail_silently=False)
         logger.info(f"Correo enviado a {email_destino} con comprobante {comprobante.id}")
+        
 
         # 🔥 Marcar como enviado si todo fue bien
         comprobante.correo_enviado = True
