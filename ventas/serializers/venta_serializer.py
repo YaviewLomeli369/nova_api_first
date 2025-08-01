@@ -49,7 +49,7 @@ class VentaSerializer(serializers.ModelSerializer):
             'condiciones_pago',
             'detalles'
         ]
-        read_only_fields = ['id', 'fecha', 'total']
+        read_only_fields = ['id', 'fecha', 'total', 'sucursal']
 
     @transaction.atomic
     def create(self, validated_data):
@@ -68,6 +68,13 @@ class VentaSerializer(serializers.ModelSerializer):
         venta = Venta(**validated_data)
         venta.usuario = usuario
         venta.empresa = empresa
+        
+        # Asignar automáticamente la sucursal del usuario
+        if hasattr(usuario, 'sucursal_actual') and usuario.sucursal_actual:
+            venta.sucursal = usuario.sucursal_actual
+        else:
+            raise DRFValidationError("El usuario no tiene una sucursal asignada.")
+        
         venta.save()
 
         # 2. Crear detalles y actualizar inventario
