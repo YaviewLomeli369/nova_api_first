@@ -60,15 +60,25 @@ class ProductosMasVendidosView(APIView):
         productos = (
             DetalleVenta.objects.filter(**filtros)
             .values(
-                id_producto=F('producto__id'),
-                nombre=F('producto__nombre'),
-                codigo=F('producto__codigo'),
+                'producto__id',
+                'producto__nombre', 
+                'producto__codigo',
             )
             .annotate(total_vendido=Sum('cantidad'))
-            .order_by('-total_vendido')
+            .order_by('-total_vendido')[:10]  # Limitar a top 10
         )
 
-        return Response(productos)
+        # Formatear la respuesta
+        resultado = []
+        for producto in productos:
+            resultado.append({
+                'id_producto': producto['producto__id'],
+                'nombre': producto['producto__nombre'],
+                'codigo': producto['producto__codigo'],
+                'total_vendido': float(producto['total_vendido']) if producto['total_vendido'] else 0
+            })
+
+        return Response(resultado)
 
 
 
