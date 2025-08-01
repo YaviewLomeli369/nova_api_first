@@ -42,7 +42,7 @@ class ProductosMasVendidosView(APIView):
         if fecha_fin:
             filtros['venta__fecha__lte'] = fecha_fin
         if sucursal_id:
-            filtros['venta__sucursal_id'] = sucursal_id
+            filtros['venta__sucursal__id'] = sucursal_id
 
         # Consulta agregada
         productos = (

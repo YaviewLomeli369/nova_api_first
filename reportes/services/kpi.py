@@ -3,6 +3,8 @@ from django.db.models import Sum, F, ExpressionWrapper, DecimalField
 from ventas.models import DetalleVenta
 from datetime import datetime
 
+
+
 def obtener_rentabilidad_por_producto_y_cliente(empresa_id, fecha_inicio=None, fecha_fin=None, cliente_id=None, producto_id=None):
     """
     Obtiene rentabilidad agrupada por producto y cliente, filtrando por empresa y opcionalmente por fechas, cliente y producto.
