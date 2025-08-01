@@ -6,12 +6,58 @@ from reportes.services.calculos_kpis import ventas_agrupadas_por_fecha
 from reportes.serializers.kpi_serializer import VentaAgrupadaSerializer
 from reportes.models import ReporteGenerado
 from reportes.utils.filtros import serializar_filtros
-from django.db.models.functions import TruncDate, TruncMonth, TruncDay
-from django.db.models import Sum
-from reportes.services.ventas import calcular_promedio_ticket
-from reportes.serializers.ventas import PromedioTicketVentaSerializer
-
+from django.db.models import Sum, F
+from reportes.services.ventas import calcular_promedio_ticket, obtener_productos_mas_vendidos
+from reportes.serializers.ventas import PromedioTicketVentaSerializer, ProductoMasVendidoSerializer
 from datetime import datetime, timedelta
+from rest_framework import serializers
+from ventas.models import DetalleVenta
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.db.models import Sum, F
+from ventas.models import DetalleVenta
+from datetime import datetime
+
+class ProductosMasVendidosView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        empresa = user.empresa_actual  # Asegura que estás usando empresa del usuario
+
+        # Filtros
+        fecha_inicio = request.query_params.get('fecha_inicio')
+        fecha_fin = request.query_params.get('fecha_fin')
+        sucursal_id = request.query_params.get('sucursal_id')
+
+        # Construimos filtros
+        filtros = {
+            'venta__empresa': empresa,
+        }
+
+        if fecha_inicio:
+            filtros['venta__fecha__gte'] = fecha_inicio
+        if fecha_fin:
+            filtros['venta__fecha__lte'] = fecha_fin
+        if sucursal_id:
+            filtros['venta__sucursal_id'] = sucursal_id
+
+        # Consulta agregada
+        productos = (
+            DetalleVenta.objects.filter(**filtros)
+            .values(
+                id_producto=F('producto__id'),
+                nombre=F('producto__nombre'),
+                codigo=F('producto__codigo'),
+            )
+            .annotate(total_vendido=Sum('cantidad'))
+            .order_by('-total_vendido')
+        )
+
+        return Response(productos)
+
 
 
 class PromedioTicketVentaView(APIView):

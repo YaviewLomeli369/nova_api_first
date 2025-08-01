@@ -1,12 +1,13 @@
 # reportes/urls.py
 
 from django.urls import path
-from reportes.views.ventas import ReporteVentasView, PromedioTicketVentaView
+from reportes.views.ventas import ReporteVentasView, PromedioTicketVentaView, ProductosMasVendidosView
 from reportes.views.compras import ReporteComprasProveedorView
 from reportes.views.flujo_caja import FlujoCajaReporteView
 from reportes.views.utilidad_producto import ReporteUtilidadPorProductoView
 from reportes.views.stock import ReporteStockActualView
-from reportes.views.kpi import RentabilidadProductoClienteView
+from reportes.views.kpi import RentabilidadProductoClienteView, DiasPromedioPagoProveedoresView
+from reportes.views.reportes_compras import  DiasPromedioPagoProveedorView
 
 
 
@@ -17,5 +18,8 @@ urlpatterns = [
     path("utilidad-producto/", ReporteUtilidadPorProductoView.as_view(), name="reporte-utilidad-producto"),
     path('stock-actual/', ReporteStockActualView.as_view(), name='reporte-stock-actual'),
     path('kpi/rentabilidad-producto-cliente/', RentabilidadProductoClienteView.as_view(), name='kpi_rentabilidad_producto_cliente'),
-    path('ventas/promedio-ticket/', PromedioTicketVentaView.as_view(), name='promedio-ticket-venta')
+    path('kpi/dias-promedio-pago-proveedores/', DiasPromedioPagoProveedoresView.as_view(), name='dias_promedio_pago_proveedores'),
+    path('ventas/promedio-ticket/', PromedioTicketVentaView.as_view(), name='promedio-ticket-venta'),
+    path('compras/dias-promedio-pago/', DiasPromedioPagoProveedorView.as_view(), name='dias-promedio-pago'),
+    path('ventas/productos-mas-vendidos/', ProductosMasVendidosView.as_view(), name='productos-mas-vendidos'),
 ]

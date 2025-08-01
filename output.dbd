@@ -1,0 +1,500 @@
+Table LogEntry {
+  id int [pk]
+  content_type int [ref: > ContentType.id]
+  user int [ref: > Usuario.id]
+  action_flag smallint
+  action_time datetime
+  change_message text
+  object_id text
+  object_repr varchar
+}
+
+Table Permission {
+  id int [pk]
+  content_type int [ref: > ContentType.id]
+  codename varchar
+  name varchar
+}
+
+Table Group {
+  id int [pk]
+  name varchar
+}
+
+Table ContentType {
+  id int [pk]
+  app_label varchar
+  model varchar
+}
+
+Table AbstractBaseSession {
+  expire_date datetime
+  session_data text
+}
+
+Table Session {
+  session_key varchar
+  expire_date datetime
+  session_data text
+}
+
+Table AbstractUserSocialAuth {
+  user int [ref: > Usuario.id]
+  created datetime
+  extra_data json
+  modified datetime
+  provider varchar
+  uid varchar
+}
+
+Table UserSocialAuth {
+  id bigint [pk]
+  user int [ref: > Usuario.id]
+  created datetime
+  extra_data json
+  modified datetime
+  provider varchar
+  uid varchar
+}
+
+Table Nonce {
+  id bigint [pk]
+  salt varchar
+  server_url varchar
+  timestamp int
+}
+
+Table Association {
+  id bigint [pk]
+  assoc_type varchar
+  handle varchar
+  issued int
+  lifetime int
+  secret varchar
+  server_url varchar
+}
+
+Table Code {
+  id bigint [pk]
+  code varchar
+  email varchar
+  timestamp datetime
+  verified boolean
+}
+
+Table Partial {
+  id bigint [pk]
+  backend varchar
+  data json
+  next_step smallint
+  timestamp datetime
+  token varchar
+}
+
+Table PermissionsMixin {
+  is_superuser boolean
+}
+
+Table AbstractBaseUser {
+  last_login datetime
+  password varchar
+}
+
+Table Auditoria {
+  id bigint [pk]
+  usuario int [ref: > Usuario.id]
+  accion varchar
+  registro_afectado text
+  tabla_afectada varchar
+  timestamp datetime
+  username_intentado varchar
+}
+
+Table Rol {
+  id bigint [pk]
+  grupo varchar
+  descripcion text
+  nombre varchar
+}
+
+Table Usuario {
+  id bigint [pk]
+  empresa int [ref: > Empresa.id]
+  rol int [ref: > Rol.id]
+  sucursal_actual int [ref: > Sucursal.id]
+  activo boolean
+  direccion text
+  email varchar
+  fecha_creacion datetime
+  foto varchar
+  idioma varchar
+  is_active boolean
+  is_staff boolean
+  is_superuser boolean
+  last_login datetime
+  mfa_enabled boolean
+  mfa_secret varchar
+  password varchar
+  telefono varchar
+  tema varchar
+  username varchar
+}
+
+Table ClaveSATUnidad {
+  id bigint [pk]
+  clave varchar
+  descripcion varchar
+}
+
+Table ClaveSATProducto {
+  id bigint [pk]
+  unidad int [ref: > ClaveSATUnidad.id]
+  clave varchar
+  descripcion varchar
+}
+
+Table Categoria {
+  id bigint [pk]
+  empresa int [ref: > Empresa.id]
+  descripcion text
+  nombre varchar
+}
+
+Table Producto {
+  id bigint [pk]
+  categoria int [ref: > Categoria.id]
+  clave_sat int [ref: > ClaveSATProducto.id]
+  empresa int [ref: > Empresa.id]
+  unidad_medida int [ref: > ClaveSATUnidad.id]
+  activo boolean
+  codigo varchar
+  descripcion text
+  nombre varchar
+  precio_compra decimal
+  precio_venta decimal
+  stock_minimo decimal
+}
+
+Table Inventario {
+  id bigint [pk]
+  producto int [ref: > Producto.id]
+  sucursal int [ref: > Sucursal.id]
+  cantidad decimal
+  fecha_vencimiento varchar
+  lote varchar
+}
+
+Table MovimientoInventario {
+  id bigint [pk]
+  inventario int [ref: > Inventario.id]
+  usuario int [ref: > Usuario.id]
+  cantidad decimal
+  fecha datetime
+  tipo_movimiento varchar
+}
+
+Table Cliente {
+  id bigint [pk]
+  empresa int [ref: > Empresa.id]
+  actualizado_en datetime
+  apellido_materno varchar
+  apellido_paterno varchar
+  correo varchar
+  creado_en datetime
+  direccion_calle varchar
+  direccion_codigo_postal varchar
+  direccion_colonia varchar
+  direccion_estado varchar
+  direccion_municipio varchar
+  direccion_num_ext varchar
+  direccion_num_int varchar
+  direccion_pais varchar
+  nombre varchar
+  regimen_fiscal varchar
+  rfc varchar
+  telefono varchar
+  uso_cfdi varchar
+}
+
+Table Venta {
+  id bigint [pk]
+  cliente int [ref: > Cliente.id]
+  empresa int [ref: > Empresa.id]
+  usuario int [ref: > Usuario.id]
+  condiciones_pago varchar
+  estado varchar
+  fecha datetime
+  forma_pago varchar
+  metodo_pago varchar
+  moneda varchar
+  total decimal
+}
+
+Table DetalleVenta {
+  id bigint [pk]
+  producto int [ref: > Producto.id]
+  venta int [ref: > Venta.id]
+  cantidad decimal
+  precio_unitario decimal
+}
+
+Table Proveedor {
+  id bigint [pk]
+  empresa int [ref: > Empresa.id]
+  actualizado_en datetime
+  correo varchar
+  creado_en datetime
+  direccion text
+  nombre varchar
+  rfc varchar
+  telefono varchar
+}
+
+Table Compra {
+  id bigint [pk]
+  empresa int [ref: > Empresa.id]
+  proveedor int [ref: > Proveedor.id]
+  usuario int [ref: > Usuario.id]
+  estado varchar
+  fecha varchar
+  fecha_pagada varchar
+  total decimal
+}
+
+Table DetalleCompra {
+  id bigint [pk]
+  compra int [ref: > Compra.id]
+  producto int [ref: > Producto.id]
+  cantidad decimal
+  cantidad_recibida decimal
+  fecha_vencimiento varchar
+  lote varchar
+  precio_unitario decimal
+}
+
+Table PagoCompra {
+  id bigint [pk]
+  compra int [ref: > Compra.id]
+  usuario int [ref: > Usuario.id]
+  actualizado_en datetime
+  creado_en datetime
+  fecha_pago datetime
+  metodo_pago varchar
+  monto decimal
+  nota text
+}
+
+Table CuentaPorCobrar {
+  id bigint [pk]
+  empresa int [ref: > Empresa.id]
+  venta int [ref: > Venta.id]
+  estado varchar
+  fecha_vencimiento varchar
+  monto decimal
+  notas text
+}
+
+Table CuentaPorPagar {
+  id bigint [pk]
+  compra int [ref: > Compra.id]
+  empresa int [ref: > Empresa.id]
+  estado varchar
+  fecha_vencimiento varchar
+  monto decimal
+  notas text
+}
+
+Table Pago {
+  id bigint [pk]
+  cuenta_cobrar int [ref: > CuentaPorCobrar.id]
+  cuenta_pagar int [ref: > CuentaPorPagar.id]
+  empresa int [ref: > Empresa.id]
+  usuario int [ref: > Usuario.id]
+  asiento_contable_creado boolean
+  comprobante varchar
+  fecha varchar
+  metodo_pago varchar
+  monto decimal
+  observaciones text
+}
+
+Table CuentaContable {
+  id bigint [pk]
+  empresa int [ref: > Empresa.id]
+  padre int [ref: > CuentaContable.id]
+  clasificacion varchar
+  codigo varchar
+  creada_en datetime
+  es_auxiliar boolean
+  nombre varchar
+}
+
+Table AsientoContable {
+  id bigint [pk]
+  empresa int [ref: > Empresa.id]
+  usuario int [ref: > Usuario.id]
+  concepto varchar
+  conciliado boolean
+  creado_en datetime
+  es_automatico boolean
+  fecha varchar
+  referencia_id varchar
+  referencia_tipo varchar
+  total_debe decimal
+  total_haber decimal
+}
+
+Table DetalleAsiento {
+  id bigint [pk]
+  asiento int [ref: > AsientoContable.id]
+  cuenta_contable int [ref: > CuentaContable.id]
+  debe decimal
+  descripcion text
+  haber decimal
+}
+
+Table Empleado {
+  id bigint [pk]
+  empresa int [ref: > Empresa.id]
+  nombre varchar
+  puesto varchar
+  rfc varchar
+  salario decimal
+}
+
+Table Nomina {
+  id bigint [pk]
+  empleado int [ref: > Empleado.id]
+  estado varchar
+  periodo varchar
+  total decimal
+}
+
+Table Asistencia {
+  id bigint [pk]
+  empleado int [ref: > Empleado.id]
+  fecha varchar
+  hora_entrada varchar
+  hora_salida varchar
+}
+
+Table DocumentoFiscal {
+  id bigint [pk]
+  content_type int [ref: > ContentType.id]
+  archivo varchar
+  fecha_emision varchar
+  object_id varchar
+  tipo_documento varchar
+}
+
+Table Empresa {
+  id bigint [pk]
+  actualizado_en datetime
+  creado_en datetime
+  domicilio_calle varchar
+  domicilio_codigo_postal varchar
+  domicilio_colonia varchar
+  domicilio_estado varchar
+  domicilio_fiscal text
+  domicilio_municipio varchar
+  domicilio_num_ext varchar
+  domicilio_num_int varchar
+  domicilio_pais varchar
+  nombre varchar
+  razon_social varchar
+  regimen_fiscal varchar
+  rfc varchar
+}
+
+Table Sucursal {
+  id bigint [pk]
+  empresa int [ref: > Empresa.id]
+  actualizado_en datetime
+  creado_en datetime
+  domicilio_calle varchar
+  domicilio_codigo_postal varchar
+  domicilio_colonia varchar
+  domicilio_estado varchar
+  domicilio_municipio varchar
+  domicilio_num_ext varchar
+  domicilio_num_int varchar
+  domicilio_pais varchar
+  nombre varchar
+}
+
+Table TimbradoLog {
+  id bigint [pk]
+  comprobante int [ref: > ComprobanteFiscal.id]
+  exito boolean
+  facturama_id varchar
+  fecha_intento datetime
+  mensaje_error text
+  uuid_obtenido varchar
+}
+
+Table ComprobanteFiscal {
+  id bigint [pk]
+  empresa int [ref: > Empresa.id]
+  venta varchar
+  acuse_cancelacion_xml varchar
+  correo_enviado boolean
+  created_at datetime
+  error_mensaje text
+  estado varchar
+  estado_sat varchar
+  exportacion varchar
+  facturama_id varchar
+  fecha_estado_sat datetime
+  fecha_timbrado datetime
+  fecha_ultimo_intento datetime
+  folio varchar
+  forma_pago varchar
+  metodo_pago varchar
+  motivo_cancelacion varchar
+  pdf varchar
+  reintentos_timbrado varchar
+  serie varchar
+  sustitucion_uuid varchar
+  tipo varchar
+  updated_at datetime
+  uuid varchar
+  xml varchar
+}
+
+Table EnvioCorreoCFDI {
+  id bigint [pk]
+  comprobante int [ref: > ComprobanteFiscal.id]
+  enviado_por int [ref: > Usuario.id]
+  destinatario varchar
+  fecha_envio datetime
+}
+
+Table ReporteGenerado {
+  id bigint [pk]
+  empresa int [ref: > Empresa.id]
+  generado_por int [ref: > Usuario.id]
+  actualizado_en datetime
+  archivo_csv varchar
+  archivo_excel varchar
+  archivo_pdf varchar
+  estado varchar
+  filtros_usados json
+  generado_en datetime
+  nombre varchar
+  tipo varchar
+}
+
+Table OutstandingToken {
+  id bigint [pk]
+  user int [ref: > Usuario.id]
+  created_at datetime
+  expires_at datetime
+  jti varchar
+  token text
+}
+
+Table BlacklistedToken {
+  id bigint [pk]
+  token varchar
+  blacklisted_at datetime
+}

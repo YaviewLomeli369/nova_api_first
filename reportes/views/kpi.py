@@ -37,3 +37,15 @@ class RentabilidadProductoClienteView(APIView):
 
         serializer = RentabilidadProductoClienteSerializer(data, many=True)
         return Response(serializer.data)
+
+
+from reportes.services.pagos import calcular_dias_promedio_pago_proveedores
+
+class DiasPromedioPagoProveedoresView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        promedio = calcular_dias_promedio_pago_proveedores()
+        return Response({
+            "dias_promedio_pago_proveedores": promedio
+        })

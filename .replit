@@ -2,7 +2,7 @@ run = ["python", "manage.py", "runserver", "0.0.0.0:3000"]
 entrypoint = "manage.py"
 modules = ["python-3.10:v18-20230807-322e88b"]
 
-hidden = [".pythonlibs","venv","sc","salida","attached_assets","cfdi_acuses","cfdi_pdfs","cfdi_xmls","documentos","collection.json","sat_cod_prod.py","code_1_file.py","cod_x_app.py","modelos.dot","todos_los_modelos_combinados.py","todo_combinado.py","schema.yaml","pytest.ini","models.md","crear_postman.py","graphviz.svg","mfa_tst.sh","accounts","contabilidad","rrhh","facturacion","poetry.lock","pyproject.toml","db.sqlite3","manage.py","finanzas",'inventario/migrations','ventas/migrations','compras/migrations','finanzas/migrations','contabilidad/migrations','migrations','documentos/migrations','core/migrations','facturacion/migrations','reportes/migrations']
+hidden = [".pythonlibs","venv","sc","salida","attached_assets","cfdi_acuses","cfdi_pdfs","cfdi_xmls","documentos","collection.json","sat_cod_prod.py","code_1_file.py","cod_x_app.py","modelos.dot","todos_los_modelos_combinados.py","todo_combinado.py","schema.yaml","pytest.ini","models.md","crear_postman.py","graphviz.svg","mfa_tst.sh","accounts","","rrhh","facturacion","poetry.lock","pyproject.toml","db.sqlite3","manage.py","finanzas",'inventario/migrations','ventas/migrations','compras/migrations','finanzas/migrations','contabilidad/migrations','migrations','documentos/migrations','core/migrations','facturacion/migrations','reportes/migrations']
 
 [nix]
 channel = "stable-24_05"

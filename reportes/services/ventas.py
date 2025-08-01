@@ -1,6 +1,9 @@
 from ventas.models import Venta
 from django.db.models import Sum, Count
 from datetime import datetime
+from ventas.models import DetalleVenta
+from django.db.models import Sum
+from inventario.models import Producto
 
 def calcular_promedio_ticket(empresa_id, fecha_inicio=None, fecha_fin=None):
     ventas = Venta.objects.filter(
@@ -23,3 +26,22 @@ def calcular_promedio_ticket(empresa_id, fecha_inicio=None, fecha_fin=None):
         'total_ingresos': total_ingresos,
         'promedio_ticket': promedio_ticket
     }
+def obtener_productos_mas_vendidos(empresa, limite=10, fecha_inicio=None, fecha_fin=None):
+    """
+    Retorna los productos más vendidos por cantidad (TOP N), opcionalmente filtrando por fechas.
+    """
+    filtros = {'venta__empresa': empresa}
+    if fecha_inicio:
+        filtros['venta__fecha__gte'] = fecha_inicio
+    if fecha_fin:
+        filtros['venta__fecha__lte'] = fecha_fin
+
+    queryset = (
+        DetalleVenta.objects
+        .filter(**filtros)
+        .values('producto__id', 'producto__nombre', 'producto__codigo')
+        .annotate(total_vendido=Sum('cantidad'))
+        .order_by('-total_vendido')[:limite]
+    )
+
+    return list(queryset)

@@ -153,56 +153,6 @@ def custom_exception_handler(exc, context):
 
     return response
 
-
-# class CompraFilter(django_filters.FilterSet):
-#     fecha_compra = django_filters.DateFilter(field_name='fecha', lookup_expr='exact')
-#     fecha_min = django_filters.DateFilter(field_name='fecha', lookup_expr='gte')
-#     fecha_max = django_filters.DateFilter(field_name='fecha', lookup_expr='lte')
-#     total_min = django_filters.NumberFilter(field_name='total', lookup_expr='gte')
-#     total_max = django_filters.NumberFilter(field_name='total', lookup_expr='lte')
-#     nombre_producto = django_filters.CharFilter(method='filter_nombre_producto')
-#     producto_id = django_filters.NumberFilter(field_name='detalles__producto__id')
-#     producto_id__in = django_filters.BaseInFilter(field_name='detalles__producto__id', lookup_expr='in')
-
-#     class Meta:
-#         model = Compra
-#         fields = ['empresa', 'proveedor', 'estado', 'fecha_compra']
-
-#     def filter_nombre_producto(self, queryset, name, value):
-#         return queryset.filter(detalles__producto__nombre__icontains=value).distinct()
-
-# class CompraFilter(django_filters.FilterSet):
-#     fecha_compra = django_filters.DateFilter(field_name='fecha', lookup_expr='exact')
-#     nombre_producto = django_filters.CharFilter(method='filter_nombre_producto')
-
-#     class Meta:
-#         model = Compra
-#         fields = ['empresa', 'proveedor', 'fecha_compra']
-
-#     def filter_nombre_producto(self, queryset, name, value):
-#         # Aquí usamos Q para hacer una búsqueda en la relación detalles -> producto -> nombre
-#         return queryset.filter(
-#             Q(detalles__producto__nombre__icontains=value)
-#         ).distinct()  # Evita duplicados de compras que contienen varios productos coincidentes
-
-
-# from rest_framework import viewsets, filters
-# from django_filters.rest_framework import DjangoFilterBackend
-# from .models import Compra
-# from .serializers import CompraSerializer
-# from .filters import CompraFilter
-
-
-# /api/purchases/purchases/?search=camiseta
-# /api/purchases/purchases/?proveedor=3
-# /api/purchases/purchases/?fecha_min=2025-07-01&fecha_max=2025-07-31
-# /api/purchases/purchases/?total_min=100&total_max=1000
-# /api/purchases/purchases/?producto_id=7
-# /api/purchases/purchases/?producto_id__in=5,7,8
-# /api/purchases/purchases/?ordering=total
-# /api/purchases/purchases/?ordering=-fecha
-
-
 class CompraViewSet(viewsets.ModelViewSet):
     # queryset = Compra.objects.all()
     serializer_class = CompraSerializer
@@ -242,37 +192,6 @@ class CompraViewSet(viewsets.ModelViewSet):
 
         with transaction.atomic():
             compra = serializer.save(usuario=usuario, empresa=empresa)
-        # usuario = self.request.user
-        # empresa = usuario.empresa
-        # if not getattr(usuario, 'sucursal_actual', None):
-        #     raise serializers.ValidationError("El usuario no tiene una sucursal asignada.")
-
-        # try:
-        #     with transaction.atomic():
-        #         compra = serializer.save()
-
-        #         # Calcular total con precisión ahora que detalles están guardados
-        #         total = sum(
-        #             det.cantidad * det.precio_unitario
-        #             for det in compra.detalles.all()
-        #         )
-
-        #         # Crear CuentaPorPagar
-        #         fecha_vencimiento = compra.fecha + timedelta(days=30)
-        #         CuentaPorPagar.objects.create(
-        #             empresa=empresa,
-        #             compra=compra,
-        #             monto=total,
-        #             fecha_vencimiento=fecha_vencimiento,
-        #             estado='PENDIENTE'
-        #         )
-
-        #         # Crear asiento contable
-        #         generar_asiento_para_compra(compra, usuario)
-
-        # except Exception as e:
-        #     raise serializers.ValidationError(f"Error al generar asiento contable: {str(e)}")
-
 
 
 class CompraRecepcionParcialAPIView(APIView):

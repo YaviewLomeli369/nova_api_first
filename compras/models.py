@@ -29,37 +29,57 @@ class Proveedor(models.Model):
 
 class Compra(models.Model):
     ESTADO_CHOICES = [
-        ('pendiente', 'Pendiente'),  # La compra está pendiente de ser recibida
-        ('parcial', 'Parcial'),      # La compra está parcialmente recibida
-        ('recibida', 'Recibida'),    # La compra ha sido completamente recibida
-        ('cancelada', 'Cancelada'),  # En caso de que la compra sea cancelada
+        ('pendiente', 'Pendiente'),
+        ('parcial', 'Parcial'),
+        ('pagada', 'Pagada'),  # <-- nuevo estado
+        ('cancelada', 'Cancelada'),
     ]
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='compras')
     proveedor = models.ForeignKey(Proveedor, on_delete=models.PROTECT, related_name='compras')
-    fecha = models.DateTimeField(default=timezone.now)
+    fecha = models.DateField(default=timezone.now)
     total = models.DecimalField(max_digits=14, decimal_places=2)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
     usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name='compras_creadas')
+    fecha_pagada = models.DateField(null=True, blank=True)
+    
+    @property
+    def total_pagado(self):
+        return self.pagos.aggregate(total=models.Sum('monto'))['total'] or 0
 
+    @property
+    def saldo_por_pagar(self):
+        return self.total - self.total_pagado
+
+    def actualizar_estado_pago(self):
+        if self.saldo_por_pagar <= 0:
+            self.estado = 'pagada'
+        elif self.total_pagado > 0:
+            self.estado = 'parcial'
+        else:
+            self.estado = 'pendiente'
+        self.save(update_fields=['estado'])
+
+
+    
     def calcular_total(self):
         return sum(det.subtotal for det in self.detalles.all())
 
+    
     def save(self, *args, **kwargs):
-        # Si es una nueva instancia sin PK, guardar primero sin calcular total
-        if not self.pk:
-            # Para nuevas instancias, asignar total 0 temporalmente
+        if self.pk:
+            total_calculado = self.calcular_total()
+            if total_calculado <= 0:
+                raise ValidationError("El total de la compra debe ser mayor que cero.")
+            if self.total != total_calculado:
+                self.total = total_calculado
+                super().save(update_fields=['total'])
+            else:
+                super().save(*args, **kwargs)
+        else:
+            # Para instancias nuevas sin pk
             if not hasattr(self, 'total') or self.total is None:
                 self.total = 0
-            super().save(*args, **kwargs)
-            return
-
-        # Solo calcular total si ya existe en la base de datos
-        total_calculado = self.calcular_total()
-        if self.total != total_calculado:
-            self.total = total_calculado
-            super().save(update_fields=['total'])
-        else:
             super().save(*args, **kwargs)
 
     class Meta:
@@ -103,3 +123,53 @@ class DetalleCompra(models.Model):
     def __str__(self):
         return f'{self.producto.nombre} - {self.cantidad} x {self.precio_unitario}'
 
+
+# --- Formas de pago SAT válidas (catálogo C_FormaPago 2025 simplificado) ---
+FORMA_PAGO_CHOICES = [
+    ('01', 'Efectivo'),
+    ('02', 'Cheque nominativo'),
+    ('03', 'Transferencia electrónica de fondos'),
+    ('04', 'Tarjeta de crédito'),
+    ('05', 'Monedero electrónico'),
+    ('06', 'Dinero electrónico'),
+    ('08', 'Vales de despensa'),
+    ('28', 'Tarjeta de débito'),
+    ('29', 'Tarjeta de servicios'),
+    ('99', 'Por definir'),  # Usado si aún no se sabe
+]
+
+class PagoCompra(models.Model):
+    compra = models.ForeignKey(Compra, on_delete=models.CASCADE, related_name='pagos')
+    monto = models.DecimalField(max_digits=14, decimal_places=2)
+    fecha_pago = models.DateTimeField()
+
+    # Almacenamos el código SAT (ej. '01') para que sea compatible con CFDI
+    metodo_pago = models.CharField(
+        max_length=2,
+        choices=FORMA_PAGO_CHOICES,
+        help_text="Método de pago según catálogo SAT (C_FormaPago)",
+    )
+
+    nota = models.TextField(blank=True, null=True)
+    usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pagos_compra'
+    )
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Pago de Compra"
+        verbose_name_plural = "Pagos de Compras"
+        ordering = ['-fecha_pago']
+        indexes = [
+            models.Index(fields=['fecha_pago']),
+            models.Index(fields=['compra']),
+        ]
+
+    def __str__(self):
+        return f"Pago #{self.id} - Compra #{self.compra.id} - {self.get_metodo_pago_display()} - {self.fecha_pago.strftime('%Y-%m-%d')}"

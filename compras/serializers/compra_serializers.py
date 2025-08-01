@@ -15,10 +15,10 @@ class CompraSerializer(serializers.ModelSerializer):
     class Meta:
         model = Compra
         fields = [
-            'id', 'empresa', 'proveedor', 'nombre_proveedor', 'fecha', 'estado',
+            'id', 'empresa', 'proveedor', 'nombre_proveedor',  'estado',
             'usuario', 'total', 'detalles'
         ]
-        read_only_fields = ['id', 'total', 'usuario', 'empresa']
+        read_only_fields = ['id', 'total', 'usuario', 'empresa', 'fecha']
 
     def get_total(self, obj):
         return sum(det.cantidad * det.precio_unitario for det in obj.detalles.all())
@@ -44,7 +44,7 @@ class CompraSerializer(serializers.ModelSerializer):
                 empresa=empresa,
                 usuario=usuario,
                 proveedor=validated_data['proveedor'],
-                fecha=validated_data.get('fecha'),
+                # fecha=validated_data.get('fecha'),
                 estado=validated_data.get('estado', 'PENDIENTE'),
                 total=0  # Total temporal
             )
