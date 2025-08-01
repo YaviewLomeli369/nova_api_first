@@ -36,6 +36,7 @@ class VentaSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'empresa',
+            'sucursal',
             'cliente',
             'cliente_nombre',
             'usuario',
@@ -103,13 +104,13 @@ class VentaSerializer(serializers.ModelSerializer):
         venta.total = redondear_decimal(total_calculado)
         venta.save(update_fields=['total'])
 
-        
+
 
         # 3. Crear ComprobanteFiscal en PENDIENTE
         def generar_folio(empresa):
             ultimo = ComprobanteFiscal.objects.filter(empresa=empresa, serie='A').order_by('-folio').first()
             return (ultimo.folio + 1) if ultimo and ultimo.folio else 1
-            
+
         serie = 'A'
         folio = generar_folio(empresa)
 

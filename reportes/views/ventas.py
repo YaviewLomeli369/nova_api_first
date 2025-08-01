@@ -44,14 +44,14 @@ class ProductosMasVendidosView(APIView):
         if fecha_fin:
             filtros['venta__fecha__date__lte'] = fecha_fin
 
-        # Filtro por sucursal usando el usuario que realizó la venta
+        # Filtro por sucursal usando el campo sucursal de la venta
         if sucursal_id:
             try:
                 from core.models import Sucursal
                 # Verificar que la sucursal pertenece a la empresa del usuario
                 sucursal = Sucursal.objects.get(id=sucursal_id, empresa=empresa)
-                # Filtrar por ventas realizadas por usuarios de esa sucursal
-                filtros['venta__usuario__sucursal_actual'] = sucursal
+                # Filtrar por ventas de esa sucursal
+                filtros['venta__sucursal'] = sucursal
             except Sucursal.DoesNotExist:
                 # Si la sucursal no existe o no pertenece a la empresa, ignorar el filtro
                 pass
