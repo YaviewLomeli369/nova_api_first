@@ -78,14 +78,13 @@ INSTALLED_APPS = [
     'social_django',
     'accounts.apps.AccountsConfig',
     'django_extensions',
+
+    
     # Apps locales
-    # 'accounts',
     'inventario',
-    # 'ventas',
     'ventas.apps.VentasConfig',
     'compras',
     'finanzas',
-    # 'contabilidad',
     'contabilidad.apps.ContabilidadConfig',
     'rrhh',
     'documentos',
