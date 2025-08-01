@@ -8,6 +8,7 @@ from reportes.views.utilidad_producto import ReporteUtilidadPorProductoView
 from reportes.views.stock import ReporteStockActualView
 from reportes.views.kpi import RentabilidadProductoClienteView, DiasPromedioPagoProveedoresView
 from reportes.views.reportes_compras import  DiasPromedioPagoProveedorView
+from reportes.views.categorias import CategoriasMasRentablesView
 
 
 
@@ -22,4 +23,5 @@ urlpatterns = [
     path('ventas/promedio-ticket/', PromedioTicketVentaView.as_view(), name='promedio-ticket-venta'),
     path('compras/dias-promedio-pago/', DiasPromedioPagoProveedorView.as_view(), name='dias-promedio-pago'),
     path('ventas/productos-mas-vendidos/', ProductosMasVendidosView.as_view(), name='productos-mas-vendidos'),
+    path('categorias-mas-rentables/', CategoriasMasRentablesView.as_view(), name='categorias-mas-rentables'),
 ]
