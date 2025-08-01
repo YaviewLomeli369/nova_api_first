@@ -161,6 +161,11 @@ class VentaSerializer(serializers.ModelSerializer):
         except Exception as e:
             raise DRFValidationError(f"Error al generar asiento contable: {str(e)}")
 
+        # 7. Marcar la venta como COMPLETADA
+        venta.estado = 'COMPLETADA'
+        venta.save(update_fields=['estado'])
+
+
 
 
         return venta
