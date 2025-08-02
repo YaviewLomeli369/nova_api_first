@@ -31,7 +31,7 @@ def flujo_caja_proyectado(
     # --- Salidas ---
     filtros_cxp = Q(empresa=empresa, estado='PENDIENTE', fecha_vencimiento__range=(fecha_inicio, fecha_fin))
     if sucursal_id:
-        filtros_cxp &= Q(venta__sucursal__id=sucursal_id)
+        filtros_cxp &= Q(compra__sucursal__id=sucursal_id)
 
     salidas = (
         CuentaPorPagar.objects
@@ -61,19 +61,19 @@ def flujo_caja_proyectado(
         resultado = [
             {
                 'periodo': mes,
-                'entradas': datos['entradas'],
-                'salidas': datos['salidas'],
-                'saldo_neto': datos['entradas'] - datos['salidas'],
+                'entradas': float(datos['entradas']),
+                'salidas': float(datos['salidas']),
+                'saldo_neto': float(datos['entradas'] - datos['salidas']),
             }
             for mes, datos in sorted(flujo_mensual.items())
         ]
     else:
         resultado = [
             {
-                'fecha': fecha,
-                'entradas': datos['entradas'],
-                'salidas': datos['salidas'],
-                'saldo_neto': datos['entradas'] - datos['salidas'],
+                'fecha': fecha.isoformat(),
+                'entradas': float(datos['entradas']),
+                'salidas': float(datos['salidas']),
+                'saldo_neto': float(datos['entradas'] - datos['salidas']),
             }
             for fecha, datos in sorted(flujo.items())
         ]
