@@ -3,7 +3,7 @@
 from django.urls import path
 from reportes.views.ventas import ReporteVentasView, PromedioTicketVentaView, ProductosMasVendidosView
 from reportes.views.compras import ReporteComprasProveedorView
-from reportes.views.flujo_caja import FlujoCajaReporteView
+from reportes.views.flujo_caja import FlujoCajaReporteView, FlujoCajaProyectadoView
 from reportes.views.utilidad_producto import ReporteUtilidadPorProductoView
 from reportes.views.stock import ReporteStockActualView
 from reportes.views.kpi import RentabilidadProductoClienteView, DiasPromedioPagoProveedoresView
@@ -24,4 +24,5 @@ urlpatterns = [
     path('compras/dias-promedio-pago/', DiasPromedioPagoProveedorView.as_view(), name='dias-promedio-pago'),
     path('ventas/productos-mas-vendidos/', ProductosMasVendidosView.as_view(), name='productos-mas-vendidos'),
     path('categorias-mas-rentables/', CategoriasMasRentablesView.as_view(), name='categorias-mas-rentables'),
+    path('flujo-caja-proyectado/', FlujoCajaProyectadoView.as_view(), name='flujo-caja-proyectado'),
 ]

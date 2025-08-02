@@ -1,0 +1,76 @@
+Hola 👋, necesitamos que revises y completes correctamente el endpoint /api/reportes/flujo-caja-proyectado/ ya que actualmente está fallando con el siguiente error:
+
+sql
+Copiar
+Editar
+FieldError: Cannot resolve keyword 'venta' into field. Choices are: compra, compra_id, empresa, empresa_id, estado, fecha_vencimiento, id, monto, notas, pagos
+Este error ocurre porque en los modelos CuentaPorCobrar y CuentaPorPagar no existe una relación llamada venta, pero el filtro está intentando hacer venta__sucursal__id=sucursal_id.
+
+🎯 Objetivo:
+Completar correctamente el reporte de flujo de caja proyectado, el cual debe considerar las cuentas por cobrar y por pagar dentro de un rango de fechas, agrupadas por día o por mes, y con los siguientes requerimientos funcionales:
+
+✅ Requisitos funcionales:
+Filtro por fechas:
+
+fecha_inicio y fecha_fin (default: hoy y +30 días).
+
+Filtro por sucursal:
+
+Si los modelos CuentaPorCobrar o CuentaPorPagar no tienen relación directa con Sucursal, crearla adecuadamente.
+
+Si CuentaPorCobrar tiene compra → sucursal, usar compra__sucursal_id.
+
+Si no hay ninguna forma de llegar a sucursal, discutir si se agrega un sucursal directo en esos modelos.
+
+Agrupación:
+
+agrupacion=diaria o mensual.
+
+Paginación opcional:
+
+Idealmente incluir una paginación basada en fecha o periodo.
+
+Output esperado:
+
+json
+Copiar
+Editar
+{
+  "empresa": "Nombre Empresa",
+  "sucursal_id": 2,
+  "fecha_inicio": "2025-08-01",
+  "fecha_fin": "2025-08-31",
+  "agrupacion": "mensual",
+  "flujo_caja": [
+    {
+      "periodo": "2025-08",
+      "entradas": 1000.0,
+      "salidas": 800.0,
+      "saldo_neto": 200.0
+    }
+  ]
+}
+Seguridad:
+
+Asegurar que solo se consulten datos de la empresa del usuario autenticado.
+
+Validación de entrada:
+
+Verificar que las fechas estén en formato ISO.
+
+Validar que agrupacion sea 'diaria' o 'mensual'.
+
+Serializer limpio:
+
+Usar FlujoCajaInputSerializer y FlujoCajaOutputSerializer correctamente para entrada y salida.
+
+🚩 Errores actuales:
+El filtro Q(venta__sucursal__id=sucursal_id) genera error porque el campo venta no existe. Verificar si se debe cambiar a compra__sucursal_id o agregar relación a sucursal correctamente.
+
+🎁 Bonus (si hay tiempo):
+Agregar un campo "saldo_acumulado" por fecha o periodo, para ver el saldo proyectado de forma continua.
+
+Agregar filtro por estado de la cuenta por cobrar/pagar si es relevante (ej. PENDIENTE, PAGADA).
+
+Documentar este endpoint para futura integración (describir todos los parámetros posibles).
+

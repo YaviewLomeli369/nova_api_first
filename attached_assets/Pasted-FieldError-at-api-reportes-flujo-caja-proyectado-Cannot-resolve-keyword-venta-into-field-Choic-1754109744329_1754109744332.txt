@@ -1,0 +1,94 @@
+FieldError at /api/reportes/flujo-caja-proyectado/
+Cannot resolve keyword 'venta' into field. Choices are: compra, compra_id, empresa, empresa_id, estado, fecha_vencimiento, id, monto, notas, pagos
+Request Method:	GET
+Request URL:	http://fca3faea-e64a-4f83-a448-762fa6e71df4-00-1kkfg9j97gplb.spock.replit.dev/api/reportes/flujo-caja-proyectado/?sucursal_id=2
+Django Version:	5.2.4
+Exception Type:	FieldError
+Exception Value:	
+Cannot resolve keyword 'venta' into field. Choices are: compra, compra_id, empresa, empresa_id, estado, fecha_vencimiento, id, monto, notas, pagos
+Exception Location:	/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/db/models/sql/query.py, line 1805, in names_to_path
+Raised during:	reportes.views.flujo_caja.FlujoCajaProyectadoView
+Python Executable:	/home/runner/workspace/.pythonlibs/bin/python
+Python Version:	3.10.18
+Python Path:	
+['/home/runner/workspace',
+ '/nix/store/zz7i75jb78idaz0rb1y1i4rzdyxq28vf-sitecustomize/lib/python/site-packages',
+ '/nix/store/xpxqdrjisrwlpm2dnisd2r08iq2qx930-python3.10-pip-25.0.1/lib/python3.10/site-packages',
+ '/nix/store/jyvjawqnhnqhwrsinpvx1av7q2p2fcym-python3-3.10.18/lib/python310.zip',
+ '/nix/store/jyvjawqnhnqhwrsinpvx1av7q2p2fcym-python3-3.10.18/lib/python3.10',
+ '/nix/store/jyvjawqnhnqhwrsinpvx1av7q2p2fcym-python3-3.10.18/lib/python3.10/lib-dynload',
+ '/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages',
+ '/nix/store/jyvjawqnhnqhwrsinpvx1av7q2p2fcym-python3-3.10.18/lib/python3.10/site-packages',
+ '/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages',
+ '/nix/store/dl6xr8gz142jqd6gzmh43r4za60hfv0c-python3.10-setuptools-80.7.1/lib/python3.10/site-packages']
+Server time:	Sat, 02 Aug 2025 04:41:22 +0000
+Traceback Switch to copy-and-paste view
+/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/core/handlers/exception.py, line 55, in inner
+        return inner
+    else:
+        @wraps(get_response)
+        def inner(request):
+            try:
+                response = get_response(request) …
+            except Exception as exc:
+                response = response_for_exception(request, exc)
+            return response
+        return inner
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/core/handlers/base.py, line 197, in _get_response
+        if response is None:
+            wrapped_callback = self.make_view_atomic(callback)
+            # If it is an asynchronous view, run it in a subthread.
+            if iscoroutinefunction(wrapped_callback):
+                wrapped_callback = async_to_sync(wrapped_callback)
+            try:
+                response = wrapped_callback(request, *callback_args, **callback_kwargs) …
+            except Exception as e:
+                response = self.process_exception_by_middleware(e, request)
+                if response is None:
+                    raise
+        # Complain if the view returned None (a common error).
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/sentry_sdk/integrations/django/views.py, line 94, in sentry_wrapped_callback
+            sentry_scope.profile.update_active_thread_id()
+        with sentry_sdk.start_span(
+            op=OP.VIEW_RENDER,
+            name=request.resolver_match.view_name,
+            origin=DjangoIntegration.origin,
+        ):
+            return callback(request, *args, **kwargs) …
+    return sentry_wrapped_callback
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/views/decorators/csrf.py, line 65, in _view_wrapper
+        async def _view_wrapper(request, *args, **kwargs):
+            return await view_func(request, *args, **kwargs)
+    else:
+        def _view_wrapper(request, *args, **kwargs):
+            return view_func(request, *args, **kwargs) …
+    _view_wrapper.csrf_exempt = True
+    return wraps(view_func)(_view_wrapper)
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/django/views/generic/base.py, line 105, in view
+            self = cls(**initkwargs)
+            self.setup(request, *args, **kwargs)
+            if not hasattr(self, "request"):
+                raise AttributeError(
+                    "%s instance has no 'request' attribute. Did you override "
+                    "setup() and forget to call super()?" % cls.__name__
+                )
+            return self.dispatch(request, *args, **kwargs) …
+        view.view_class = cls
+        view.view_initkwargs = initkwargs
+        # __name__ and __qualname__ are intentionally left unchanged as
+        # view_class should be used to robustly determine the name of the view
+Local vars
+/home/runner/workspace/.pythonlibs/lib/python3.10/site-packages/rest_framework/views.py, line 515, in dispatch
+                                  self.http_method_not_allowed)
+            else:
+                handler = self.http_method_not_allowed
+            response = handler(request, *args, **kwargs)
+        except Exception as exc:
+            response = self.handle_exception(exc) …
+        self.response = self.finalize_response(request, response, *args, **kwargs)
+        return self.response
+    def options(self, request, *args, **kwargs):
