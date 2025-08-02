@@ -9,6 +9,7 @@ from reportes.views.stock import ReporteStockActualView
 from reportes.views.kpi import RentabilidadProductoClienteView, DiasPromedioPagoProveedoresView
 from reportes.views.reportes_compras import  DiasPromedioPagoProveedorView
 from reportes.views.categorias import CategoriasMasRentablesView
+from reportes.views.margen_bruto import MargenBrutoReporteView
 
 
 
@@ -25,4 +26,5 @@ urlpatterns = [
     path('ventas/productos-mas-vendidos/', ProductosMasVendidosView.as_view(), name='productos-mas-vendidos'),
     path('categorias-mas-rentables/', CategoriasMasRentablesView.as_view(), name='categorias-mas-rentables'),
     path('flujo-caja-proyectado/', FlujoCajaProyectadoView.as_view(), name='flujo-caja-proyectado'),
+    path('margen-bruto/', MargenBrutoReporteView.as_view(), name='reporte-margen-bruto'),
 ]

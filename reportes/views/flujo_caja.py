@@ -121,14 +121,28 @@ class FlujoCajaProyectadoView(APIView):
                 agrupacion=agrupacion,
             )
 
+            # return Response({
+            #     'empresa': empresa.nombre,
+            #     'sucursal_id': sucursal_id,
+            #     'fecha_inicio': fecha_inicio.isoformat() if fecha_inicio else None,
+            #     'fecha_fin': fecha_fin.isoformat() if fecha_fin else None,
+            #     'agrupacion': agrupacion,
+            #     'flujo_caja': data,
+            # })
             return Response({
                 'empresa': empresa.nombre,
                 'sucursal_id': sucursal_id,
                 'fecha_inicio': fecha_inicio.isoformat() if fecha_inicio else None,
                 'fecha_fin': fecha_fin.isoformat() if fecha_fin else None,
                 'agrupacion': agrupacion,
-                'flujo_caja': data,
+                'flujo_caja': data['flujo_caja'],  # lista de períodos
+                'total_entradas': data['total_entradas'],
+                'total_salidas': data['total_salidas'],
+                'saldo_neto_total': data['saldo_neto_total'],
             })
+
+        
+        
         except Exception as e:
             return Response({
                 'detail': f'Error al generar el reporte: {str(e)}'
