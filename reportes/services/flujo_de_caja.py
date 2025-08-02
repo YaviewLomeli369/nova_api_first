@@ -19,7 +19,7 @@ def flujo_caja_proyectado(
     # --- Entradas ---
     filtros_cxc = Q(empresa=empresa, estado='PENDIENTE', fecha_vencimiento__range=(fecha_inicio, fecha_fin))
     if sucursal_id:
-        filtros_cxc &= Q(venta__sucursal__id=sucursal_id)
+        filtros_cxc &= Q(venta__sucursal=sucursal_id)  # Corregido: eliminar '__id'
 
     entradas = (
         CuentaPorCobrar.objects
@@ -31,7 +31,7 @@ def flujo_caja_proyectado(
     # --- Salidas ---
     filtros_cxp = Q(empresa=empresa, estado='PENDIENTE', fecha_vencimiento__range=(fecha_inicio, fecha_fin))
     if sucursal_id:
-        filtros_cxp &= Q(compra__sucursal__id=sucursal_id)
+        filtros_cxp &= Q(compra__sucursal=sucursal_id)  # Corregido: eliminar '__id'
 
     salidas = (
         CuentaPorPagar.objects

@@ -1,33 +1,25 @@
-import os
-import django
+import os, django
+from django.apps import apps
+from django.db.models import NOT_PROVIDED
+from django.db.models.fields.related import ForeignKey, OneToOneField, ManyToManyField
 
-# Configura la variable de entorno para tu proyecto Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'nova_erp_total.settings')
 django.setup()
 
-from django.apps import apps
-from django.db.models.fields.related import (
-    ForeignKey, OneToOneField, ManyToManyField
-)
-
-for app_config in apps.get_app_configs():
-    print(f"\n🧩 App: {app_config.label}")
-    for model in app_config.get_models():
+for app in apps.get_app_configs():
+    print(f"\n🧩 App: {app.label}")
+    for model in app.get_models():
         print(f"  📦 Modelo: {model.__name__}")
-        for field in model._meta.get_fields():
-            # Ignorar relaciones inversas generadas automáticamente
-            if field.auto_created and not field.concrete:
-                continue
-
-            field_info = f"    🔹 Campo: {field.name} ({field.get_internal_type()})"
-
-            # Verifica si es clave primaria
-            if getattr(field, 'primary_key', False):
-                field_info += " [PRIMARY KEY]"
-
-            # Verifica si es un campo relacional y muestra el modelo relacionado
-            if isinstance(field, (ForeignKey, OneToOneField, ManyToManyField)):
-                related_model = field.related_model
-                field_info += f" [RELACIONA CON: {related_model.__module__}.{related_model.__name__}]"
-
-            print(field_info)
+        for f in model._meta.get_fields():
+            if f.auto_created and not f.concrete: continue
+            tipo = f.get_internal_type()
+            extras = []
+            if getattr(f, 'primary_key', False): extras.append("PK")
+            if getattr(f, 'unique', False): extras.append("unique")
+            if getattr(f, 'null', False): extras.append("null")
+            if getattr(f, 'blank', False): extras.append("blank")
+            if hasattr(f, 'default') and f.default is not NOT_PROVIDED:
+                extras.append(f"default={f.default!r}")
+            if isinstance(f, (ForeignKey, OneToOneField, ManyToManyField)):
+                extras.append(f"rel: {f.related_model.__name__}")
+            print(f"    🔹 {f.name} ({tipo}) [{' | '.join(extras)}]" if extras else f"    🔹 {f.name} ({tipo})")
