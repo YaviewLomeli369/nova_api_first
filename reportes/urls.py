@@ -11,6 +11,8 @@ from reportes.views.reportes_compras import  DiasPromedioPagoProveedorView
 from reportes.views.categorias import CategoriasMasRentablesView
 from reportes.views.margen_bruto import MargenBrutoReporteView
 from reportes.views.rotacion_inventario import RotacionInventarioView
+from reportes.views.eficiencia_compras import EficienciaComprasView
+
 
 
 
@@ -29,4 +31,5 @@ urlpatterns = [
     path('flujo-caja-proyectado/', FlujoCajaProyectadoView.as_view(), name='flujo-caja-proyectado'),
     path('margen-bruto/', MargenBrutoReporteView.as_view(), name='reporte-margen-bruto'),
     path('rotacion-inventario/', RotacionInventarioView.as_view(), name='rotacion_inventario'),
+    path("eficiencia-compras/", EficienciaComprasView.as_view(), name="eficiencia-compras"),
 ]

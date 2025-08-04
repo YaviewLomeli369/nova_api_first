@@ -29,10 +29,12 @@ class Proveedor(models.Model):
 
 class Compra(models.Model):
     ESTADO_CHOICES = [
-        ('pendiente', 'Pendiente'),
-        ('parcial', 'Parcial'),
-        ('pagada', 'Pagada'),  # <-- nuevo estado
-        ('cancelada', 'Cancelada'),
+        ('pendiente', 'Pendiente'),         # Creada pero aún no aprobada
+        ('aprobada', 'Aprobada'),           # Aprobada para ejecutar
+        ('parcial', 'Recibida Parcial'),    # Recibido parcialmente
+        ('recibida', 'Recibida Completa'),  # Todo recibido
+        ('pagada', 'Pagada'),               # Totalmente pagada
+        ('cancelada', 'Cancelada'),         # Cancelada antes o después de aprobación
     ]
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='compras')
@@ -42,6 +44,9 @@ class Compra(models.Model):
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
     usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name='compras_creadas')
     fecha_pagada = models.DateField(null=True, blank=True)
+    planificada = models.BooleanField(default=False, help_text="Indica si fue parte de una compra planificada")
+    urgente = models.BooleanField(default=False, help_text="Marcada como urgente por falta crítica de stock")
+    presupuesto_total = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True, help_text="Presupuesto asignado a esta compra (si aplica)")
     
     @property
     def total_pagado(self):

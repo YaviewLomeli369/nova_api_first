@@ -21,11 +21,11 @@ from inventario.models import (
     Categoria, Producto,
     Inventario, MovimientoInventario
 )
-from compras.models import Proveedor, Compra, DetalleCompra
+from compras.models import Proveedor
 from accounts.models import Empresa, Usuario
 from core.models import Sucursal
 from contabilidad.models import CuentaContable
-from compras.models import Proveedor
+
 
 DB_PATH = "db.sqlite3"
 EXCLUDE_TABLES = {
